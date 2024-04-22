@@ -23,5 +23,7 @@ body {
   outline: none;
   color: white;
   padding: 5px;
+  transition: transform 2.0s;
 
 }
+

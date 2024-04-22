@@ -1,6 +1,11 @@
 import { Form, Button, Row, Col } from "solid-bootstrap";
+import { useNavigate } from "@solidjs/router";
+import { GlobalState } from "..";
 
 const SignIn = () => {
+  const { auth, setAuth } = GlobalState();
+  const navigate = useNavigate();
+
   const logIn = async (event) => {
     event.preventDefault();
 
@@ -18,8 +23,18 @@ const SignIn = () => {
       method: "POST",
     });
 
-    const response = await request.json();
-    console.log(response.token);
+    const { status } = request;
+
+    switch (status) {
+      case 200:
+        const { token } = await request.json();
+        localStorage.setItem("token", token);
+        setAuth(token);
+
+        navigate("/", { replace: true });
+
+        break;
+    }
   };
 
   return (
@@ -30,7 +45,7 @@ const SignIn = () => {
           data-bs-theme="light"
           onSubmit={logIn}
         >
-          <h2>Sign in</h2>
+          <h2 className="text-center">Sign in</h2>
           <Form.Group className="mb-3">
             <Form.Label>Email address</Form.Label>
             <Form.Control type="email" placeholder="Enter email" name="email" />
