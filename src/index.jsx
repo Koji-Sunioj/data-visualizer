@@ -6,6 +6,7 @@ import { createSignal, createContext, useContext } from "solid-js";
 import "./index.css";
 import Home from "./pages/Home";
 import SignIn from "./pages/SignIn";
+import { Contracts } from "./pages/Contracts";
 import { Calendar } from "./pages/Calendar";
 import { Container, Offcanvas } from "solid-bootstrap";
 
@@ -30,6 +31,11 @@ export const GlobalState = () => {
 
 const root = document.getElementById("root");
 
+const signOut = () => {
+  localStorage.removeItem("token");
+  setAuth(null);
+};
+
 render(
   () => (
     <>
@@ -52,13 +58,27 @@ render(
             <li>
               <a href="/">Home</a>
             </li>
-            <li>
-              <a href="/sign-in">Sign in</a>
-            </li>
-            {auth() !== null && (
-              <li>
-                <a href="/calendar">Shift calendar</a>
-              </li>
+
+            {auth() !== null ? (
+              <>
+                <li>
+                  <a href="/calendar">Shift calendar</a>
+                </li>
+                <li>
+                  <a href="/contracts">Manage contracts</a>
+                </li>
+                <li>
+                  <a href="/" onClick={signOut}>
+                    Sign out
+                  </a>
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <a href="/sign-in">Sign in</a>
+                </li>
+              </>
             )}
           </ul>
         </Offcanvas.Body>
@@ -84,7 +104,12 @@ render(
           <Router>
             <Route path="/" component={Home} />
             <Route path="/sign-in" component={SignIn} />
-            {auth() !== null && <Route path="/calendar" component={Calendar} />}
+            {auth() !== null && (
+              <>
+                <Route path="/calendar" component={Calendar} />
+                <Route path="/contracts" component={Contracts} />
+              </>
+            )}
           </Router>
         </Container>
       </StateContext.Provider>
