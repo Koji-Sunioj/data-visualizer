@@ -3,7 +3,7 @@ import { useNavigate } from "@solidjs/router";
 import { GlobalState } from "..";
 
 const SignIn = () => {
-  const { auth, setAuth } = GlobalState();
+  const { setAuth } = GlobalState();
   const navigate = useNavigate();
 
   const logIn = async (event) => {
@@ -30,9 +30,7 @@ const SignIn = () => {
         const { token } = await request.json();
         localStorage.setItem("token", token);
         setAuth(token);
-
         navigate("/", { replace: true });
-
         break;
     }
   };

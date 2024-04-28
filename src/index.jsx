@@ -18,7 +18,6 @@ const [auth, setAuth] = createSignal(localStorage.getItem("token") || null);
 const handleOpen = () => {
   const menuButton = document.getElementById("menu-button");
   menuButton.setAttribute("transform", "rotate(45)");
-
   setShow(true);
 };
 const handleClose = () => {
@@ -33,9 +32,10 @@ const root = document.getElementById("root");
 
 const signOut = () => {
   localStorage.removeItem("token");
+
   setAuth(null);
 };
-
+``;
 render(
   () => (
     <>
@@ -99,7 +99,12 @@ render(
           </svg>
         </button>
       </div>
-      <StateContext.Provider value={{ auth: auth, setAuth: setAuth }}>
+      <StateContext.Provider
+        value={{
+          auth: auth,
+          setAuth: setAuth,
+        }}
+      >
         <Container>
           <Router>
             <Route path="/" component={Home} />

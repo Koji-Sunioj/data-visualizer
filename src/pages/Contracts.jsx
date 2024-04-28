@@ -1,46 +1,83 @@
-import { Col, Row, Form, Button, Alert } from "solid-bootstrap";
+import { Col, Row, Form, Button, Alert, Card } from "solid-bootstrap";
 
-import { createSignal, createResource } from "solid-js";
+import { createSignal, createResource, createEffect } from "solid-js";
 import { GlobalState } from "..";
 
 export const Contracts = () => {
-  const { auth } = GlobalState();
   const url = "http://localhost:8000/contracts";
 
   const getContract = async (token) => {
-    const response = await fetch(url, {
+    const request = await fetch(url, {
       method: "GET",
-      headers: { Authorization: `Bearer ${token}s` },
+      headers: { Authorization: `Bearer ${token}` },
     });
-    const { employer, per_hour } = await response.json();
-    const contract = { employer: employer || "", per_hour: per_hour || "" };
-    return contract;
+    return await request.json();
   };
 
+  const { auth } = GlobalState();
   const [notify, setNotify] = createSignal({
     trigger: false,
     message: "",
     variant: "",
   });
-  const [initContract] = createResource(auth(), getContract);
-  const [show, setSHow] = createSignal(initContract());
+
+  const [contracts] = createResource(auth(), getContract, {
+    initialValue: [],
+  });
+  const [contract, setContract] = createSignal(null);
+  const [formAction, setFormAction] = createSignal("new");
+
+  const editContract = (contract_id) => {
+    const shouldUnEdit =
+      contract() !== null && contract_id === contract().contract_id;
+
+    if (shouldUnEdit) {
+      setContract(null);
+    } else {
+      window.scrollTo(0, 0);
+      const targetContract = contracts().find(
+        (contract) => contract.contract_id === contract_id
+      );
+      setContract(targetContract);
+    }
+  };
+
+  const deleteContract = async (contract_id) => {
+    const request = await fetch(`${url}\\${contract_id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${auth()}` },
+    });
+    const { detail } = await request.json();
+    setNotify({ message: detail, variant: "success", trigger: true });
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
+  };
 
   const saveContract = async (event) => {
     event.preventDefault();
     const {
       target: {
         employer: { value: employer },
-        rate: { value: rate },
+        hourly: { value: hourly },
       },
     } = event;
 
     let variant = "danger",
       message = "";
 
-    if (!isNaN(rate) && employer.length <= 30) {
+    const shouldPost =
+      !isNaN(hourly) && employer.length <= 30 && employer.length > 2;
+
+    if (shouldPost) {
+      const payload = { employer: employer, hourly: hourly };
+
+      contract() !== null &&
+        Object.assign(payload, { contract_id: contract().contract_id });
+
       const request = await fetch(url, {
         method: "POST",
-        body: JSON.stringify({ employer: employer, rate: rate }),
+        body: JSON.stringify(payload),
         headers: { Authorization: `Bearer ${auth()}` },
       });
 
@@ -54,60 +91,97 @@ export const Contracts = () => {
         }, 2000);
     } else {
       message =
-        "name of employer must be 30 characters or less, and rate must be numeric";
+        "name of employer must be 30 characters or less, and hourly must be numeric";
     }
 
     setNotify({ trigger: true, message: message, variant: variant });
   };
 
   return (
-    <Row>
-      <Col md={{ span: 6, offset: 3 }} onSubmit={saveContract}>
-        <h2 className="text-center">Manage your contracts here</h2>
+    <>
+      <Row>
+        <Col md={{ span: 6, offset: 3 }} onSubmit={saveContract}>
+          <h2 className="text-center">
+            {contract() === null
+              ? "Manage your contracts here"
+              : `Now editing contract for ${contract().employer}`}
+          </h2>
+          <Form>
+            <fieldset disabled={formAction() === "edit"}>
+              <Form.Group class="mb-3">
+                <Form.Label>Employer name</Form.Label>
+                <Form.Control
+                  type="text"
+                  id="employer"
+                  placeholder="Enter name of your employer"
+                  name="employer"
+                  maxLength={30}
+                  value={contract() !== null ? contract().employer : ""}
+                />
+              </Form.Group>
+              <Form.Group class="mb-3">
+                <Form.Label>Hourly rate</Form.Label>
+                <Form.Control
+                  type="number"
+                  step=".01"
+                  id="hourly"
+                  placeholder="12.01"
+                  name="hourly"
+                  value={contract() !== null ? contract().hourly : ""}
+                />
+              </Form.Group>
+            </fieldset>
+            <Button variant="primary" type="submit">
+              Submit
+            </Button>
+          </Form>
+          {notify().trigger && (
+            <Alert variant={notify().variant} class="mt-3">
+              {notify().message}
+            </Alert>
+          )}
+        </Col>
+      </Row>
 
-        <Form>
-          <fieldset disabled={!show()}>
-            <Form.Group class="mb-3">
-              <Form.Label>Employer name</Form.Label>
-              <Form.Control
-                type="text"
-                placeholder="Enter name of your employer"
-                name="employer"
-                maxLength={30}
-                value={initContract() ? initContract().employer : ""}
-              />
-            </Form.Group>
-            <Form.Group class="mb-3">
-              <Form.Label>Hourly rate</Form.Label>
-              <Form.Control
-                type="number"
-                step=".01"
-                placeholder="12.01"
-                name="rate"
-                value={initContract() ? initContract().per_hour : ""}
-              />
-            </Form.Group>
-          </fieldset>
-          <Form.Group class="mb-3" controlId="formBasicCheckbox">
-            <Form.Check
-              type="checkbox"
-              label="Edit"
-              disabled={!initContract()}
-              onChange={(e) => {
-                setSHow(e.target.checked);
-              }}
-            />
-          </Form.Group>
-          <Button variant="primary" type="submit">
-            Submit
-          </Button>
-        </Form>
-        {notify().trigger && (
-          <Alert variant={notify().variant} class="mt-3">
-            {notify().message}
-          </Alert>
-        )}
-      </Col>
-    </Row>
+      {contracts().length > 0 &&
+        contracts().map((dBcontract) => {
+          const { contract_id, hourly, employer } = dBcontract;
+
+          const border =
+            contract() !== null && contract_id == contract().contract_id
+              ? "warning"
+              : "";
+
+          return (
+            <Row class="mt-3" key={contract_id}>
+              <Col md={{ span: 6, offset: 3 }}>
+                <Card style={{ color: "black" }} border={border}>
+                  <Card.Body>
+                    <Card.Title>{employer}</Card.Title>
+                    <p>hourly rate: {hourly}</p>
+                    <p>contract id: {contract_id}</p>
+                    <Button
+                      variant="warning"
+                      onClick={() => {
+                        editContract(contract_id);
+                      }}
+                    >
+                      edit
+                    </Button>{" "}
+                    <Button
+                      variant="danger"
+                      onClick={() => {
+                        deleteContract(contract_id);
+                      }}
+                    >
+                      delete
+                    </Button>
+                  </Card.Body>
+                </Card>
+              </Col>
+            </Row>
+          );
+        })}
+    </>
   );
 };
