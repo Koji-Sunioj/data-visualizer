@@ -4,7 +4,7 @@ import { createSignal, createResource, createEffect } from "solid-js";
 import { GlobalState } from "..";
 
 export const Contracts = () => {
-  const url = "http://localhost:8000/contracts";
+  const url = "http://localhost:8000/contracts/";
 
   const getContract = async (token) => {
     const request = await fetch(url, {
@@ -43,7 +43,7 @@ export const Contracts = () => {
   };
 
   const deleteContract = async (contract_id) => {
-    const request = await fetch(`${url}\\${contract_id}`, {
+    const request = await fetch(`${url}${contract_id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${auth()}` },
     });
