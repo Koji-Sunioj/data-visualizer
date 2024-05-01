@@ -1,38 +1,24 @@
-import { createSignal } from "solid-js";
-import { Col, Row, Table, Button } from "solid-bootstrap";
 import moment from "moment";
+import { createSignal, createResource, createEffect } from "solid-js";
+import { Col, Row, Table, Button, Form } from "solid-bootstrap";
+
+import { GlobalState } from "..";
+import { getDays } from "../utils/utils";
+import { getContract } from "../utils/apis";
 
 export const Calendar = () => {
+  const { auth } = GlobalState();
   const today = moment().startOf("days");
-
-  const getDays = (today) => {
-    const calendar = [];
-
-    const normalized = today.clone().startOf("month");
-    const dayOfWeek = normalized.day();
-    const calendarStartDay = today
-      .clone()
-      .startOf("month")
-      .subtract(dayOfWeek, "days");
-
-    const endOfMonth = today.clone().endOf("month");
-    const daysFromStartToEnd =
-      calendarStartDay.diff(endOfMonth, "days") * -1 + 1;
-
-    const calendarRuns = Math.ceil(daysFromStartToEnd / 7) * 7;
-
-    for (let i = 0; i <= calendarRuns - 1; i++) {
-      const day = calendarStartDay.clone().add(i, "days");
-      const cDay = day.date();
-
-      calendar.push({ cDay: cDay, day: day });
-    }
-
-    return calendar;
-  };
-
   const [date, setDate] = createSignal(today);
+  const [formDay, setFormDay] = createSignal(null);
+  const [contracts] = createResource(auth(), getContract, {
+    initialValue: [],
+  });
   const [calendarDays, setCalendarDays] = createSignal(getDays(today) || []);
+
+  createEffect(() => {
+    console.log(contracts());
+  });
 
   const shiftCalender = (position) => {
     const newDate = date()
@@ -45,6 +31,51 @@ export const Calendar = () => {
 
     setDate(newDate);
     setCalendarDays(newCalendar);
+  };
+
+  const shiftForm = (day) => {
+    setFormDay(day);
+    console.log(day.toISOString());
+  };
+
+  const checkTime = (event) => {
+    console.log(event);
+
+    const twoPatterh =
+      /^[2]$|^[2][0-3]$|^[2][0-3][\:]$|^[2][0-3][\:][0-5]$|^[2][0-3][\:][0-5][0-9]$/;
+
+    const tenPattern =
+      /^[01]$|^[01][0-9]$|^[01][0-9][\:]$|^[01][0-9][\:][0-5]$|^[01][0-9][\:][0-5][0-9]$/;
+
+    const onePattern =
+      /^[0-9]$|^[0-9][\:]$|^[0-9][\:][0-5]$|^[0-9][\:][0-5][0-9]$/;
+
+    switch (event.key) {
+      case "Backspace":
+      case "Delete":
+      case "Enter":
+      case "ArrowRight":
+      case "ArrowLeft":
+        break;
+      default:
+        if (!isNaN(event.key) || event.key === ":") {
+          const futureValue = event.target.value + event.key;
+          const isInvalid = [onePattern, twoPatterh, tenPattern].every(
+            (pattern) => !pattern.test(futureValue)
+          );
+          /* const timeInput = document.getElementById("time-input");
+          if (futureValue.length == 2) {
+            alert("asds");
+            timeInput.dispatchEvent(new KeyboardEvent("keydown", { key: ":" }));
+          } */
+
+          if (isInvalid) {
+            event.preventDefault();
+          }
+        } else {
+          event.preventDefault();
+        }
+    }
   };
 
   return (
@@ -125,27 +156,23 @@ export const Calendar = () => {
                               ? "white"
                               : "#d6d6d6";
 
-                          const hRefColor =
+                          const focusColor =
                             day.day.format("MMDDYYYY") ===
                             moment().format("MMDDYYYY")
                               ? "blue"
                               : "black";
 
-                          const hRef = `/calendar/${day.day.format(
-                            "MM-DD-YYYY"
-                          )}`;
-
                           return (
                             <td style={{ "background-color": bg }}>
-                              <a
-                                href={hRef}
-                                style={{
-                                  color: hRefColor,
-                                  "text-decoration": "none",
+                              <Button
+                                variant="outline"
+                                style={{ color: focusColor }}
+                                onClick={() => {
+                                  shiftForm(day.day);
                                 }}
                               >
                                 {day.cDay}
-                              </a>
+                              </Button>
                             </td>
                           );
                         })}
@@ -153,6 +180,31 @@ export const Calendar = () => {
                   ))}
             </tbody>
           </Table>
+        </Col>
+      </Row>
+      <Row>
+        <Col md={{ span: 6, offset: 3 }}>
+          {formDay() !== null && (
+            <Form>
+              <Form.Group class="mb-3" controlId="formBasicEmail">
+                <Form.Label>Start</Form.Label>
+                <Form.Control
+                  type="text"
+                  inputmode="numeric"
+                  onKeyDown={checkTime}
+                  id="time-input"
+                  placeholder="08:00"
+                />
+              </Form.Group>
+              <Form.Group class="mb-3" controlId="formBasicPassword">
+                <Form.Label>End</Form.Label>
+                <Form.Control type="datetime-local" value={"08:00"} />
+              </Form.Group>
+              <Button variant="primary" type="submit">
+                Submit
+              </Button>
+            </Form>
+          )}
         </Col>
       </Row>
     </>

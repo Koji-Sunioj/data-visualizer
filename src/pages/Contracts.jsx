@@ -1,18 +1,12 @@
+import { GlobalState } from "..";
+import { createSignal, createResource } from "solid-js";
 import { Col, Row, Form, Button, Alert, Card } from "solid-bootstrap";
 
-import { createSignal, createResource, createEffect } from "solid-js";
-import { GlobalState } from "..";
+import TimePicker from "react-time-picker";
+import { getContract } from "../utils/apis";
 
 export const Contracts = () => {
   const url = "http://localhost:8000/contracts/";
-
-  const getContract = async (token) => {
-    const request = await fetch(url, {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    return await request.json();
-  };
 
   const { auth } = GlobalState();
   const [notify, setNotify] = createSignal({
@@ -20,12 +14,11 @@ export const Contracts = () => {
     message: "",
     variant: "",
   });
-
+  const [time, setTime] = createSignal("08:00");
+  const [contract, setContract] = createSignal(null);
   const [contracts] = createResource(auth(), getContract, {
     initialValue: [],
   });
-  const [contract, setContract] = createSignal(null);
-  const [formAction, setFormAction] = createSignal("new");
 
   const editContract = (contract_id) => {
     const shouldUnEdit =
@@ -107,30 +100,29 @@ export const Contracts = () => {
               : `Now editing contract for ${contract().employer}`}
           </h2>
           <Form>
-            <fieldset disabled={formAction() === "edit"}>
-              <Form.Group class="mb-3">
-                <Form.Label>Employer name</Form.Label>
-                <Form.Control
-                  type="text"
-                  id="employer"
-                  placeholder="Enter name of your employer"
-                  name="employer"
-                  maxLength={30}
-                  value={contract() !== null ? contract().employer : ""}
-                />
-              </Form.Group>
-              <Form.Group class="mb-3">
-                <Form.Label>Hourly rate</Form.Label>
-                <Form.Control
-                  type="number"
-                  step=".01"
-                  id="hourly"
-                  placeholder="12.01"
-                  name="hourly"
-                  value={contract() !== null ? contract().hourly : ""}
-                />
-              </Form.Group>
-            </fieldset>
+            <Form.Group class="mb-3">
+              <Form.Label>Employer name</Form.Label>
+              <Form.Control
+                type="text"
+                id="employer"
+                placeholder="Enter name of your employer"
+                name="employer"
+                maxLength={30}
+                value={contract() !== null ? contract().employer : ""}
+              />
+            </Form.Group>
+            <Form.Group class="mb-3">
+              <Form.Label>Hourly rate</Form.Label>
+              <Form.Control
+                type="number"
+                step=".01"
+                id="hourly"
+                placeholder="12.01"
+                name="hourly"
+                value={contract() !== null ? contract().hourly : ""}
+              />
+            </Form.Group>
+
             <Button variant="primary" type="submit">
               Submit
             </Button>
