@@ -1,6 +1,6 @@
 import moment from "moment";
 import { createSignal, createResource, createEffect } from "solid-js";
-import { Col, Row, Table, Button, Form } from "solid-bootstrap";
+import { Col, Row, Table, Button, Form, Alert } from "solid-bootstrap";
 
 import { GlobalState } from "..";
 import { getDays } from "../utils/utils";
@@ -10,6 +10,8 @@ export const Calendar = () => {
   const { auth } = GlobalState();
   const today = moment().startOf("days");
   const [date, setDate] = createSignal(today);
+  const [start, setStart] = createSignal(null);
+  const [end, setEnd] = createSignal(null);
   const [formDay, setFormDay] = createSignal(null);
   const [contracts] = createResource(auth(), getContract, {
     initialValue: [],
@@ -35,46 +37,88 @@ export const Calendar = () => {
 
   const shiftForm = (day) => {
     setFormDay(day);
-    console.log(day.toISOString());
+    if (start() !== null) {
+      const changedDate = formDay().clone().add(start().hours(), "hours");
+      const days = changedDate.diff(start(), "days");
+      const newStart = start().clone().add(days, "day");
+      setStart(newStart);
+      end() !== null && setEnd(end().clone().add(days, "day"));
+    }
+  };
+
+  const twoPatterh =
+    /^[2]$|^[2][0-3]$|^[2][0-3][\:]$|^[2][0-3][\:][0-5]$|^[2][0-3][\:][0-5][0-9]$/;
+
+  const tenPattern =
+    /^[01]$|^[01][0-9]$|^[01][0-9][\:]$|^[01][0-9][\:][0-5]$|^[01][0-9][\:][0-5][0-9]$/;
+
+  const onePattern =
+    /^[0-9]$|^[0-9][\:]$|^[0-9][\:][0-5]$|^[0-9][\:][0-5][0-9]$/;
+
+  const finalPattern =
+    /^[2][0-3][\:][0-5][0-9]$|^[01][0-9][\:][0-5][0-9]$|^[0-9][\:][0-5][0-9]$/;
+
+  const setTime = (id, futureValue) => {
+    const addZero = futureValue.length === 4 ? "0" : "";
+    const newDate = moment(
+      `${formDay().format("YYYY-MM-DD")}T${addZero}${futureValue}`
+    );
+    switch (id) {
+      case "start-time-input":
+        setStart(newDate);
+        break;
+      case "end-time-input":
+        const hourDiff = newDate.diff(start(), "hours");
+        hourDiff <= 0 && newDate.add(1, "days");
+        setEnd(newDate);
+        break;
+    }
   };
 
   const checkTime = (event) => {
-    console.log(event);
+    const key = !isNaN(event.key) ? "number" : event.key;
 
-    const twoPatterh =
-      /^[2]$|^[2][0-3]$|^[2][0-3][\:]$|^[2][0-3][\:][0-5]$|^[2][0-3][\:][0-5][0-9]$/;
-
-    const tenPattern =
-      /^[01]$|^[01][0-9]$|^[01][0-9][\:]$|^[01][0-9][\:][0-5]$|^[01][0-9][\:][0-5][0-9]$/;
-
-    const onePattern =
-      /^[0-9]$|^[0-9][\:]$|^[0-9][\:][0-5]$|^[0-9][\:][0-5][0-9]$/;
-
-    switch (event.key) {
+    switch (key) {
       case "Backspace":
       case "Delete":
       case "Enter":
       case "ArrowRight":
       case "ArrowLeft":
+      case ":":
+        break;
+      case "number":
+        const futureValue = event.target.value + event.key;
+        const isInvalid = [onePattern, twoPatterh, tenPattern].every(
+          (pattern) => !pattern.test(futureValue)
+        );
+        if (isInvalid) {
+          event.preventDefault();
+        } else if (finalPattern.test(futureValue)) {
+          setTime(event.target.id, futureValue);
+        }
         break;
       default:
-        if (!isNaN(event.key) || event.key === ":") {
-          const futureValue = event.target.value + event.key;
-          const isInvalid = [onePattern, twoPatterh, tenPattern].every(
-            (pattern) => !pattern.test(futureValue)
-          );
-          /* const timeInput = document.getElementById("time-input");
-          if (futureValue.length == 2) {
-            alert("asds");
-            timeInput.dispatchEvent(new KeyboardEvent("keydown", { key: ":" }));
-          } */
+        event.preventDefault();
+    }
+  };
 
-          if (isInvalid) {
-            event.preventDefault();
-          }
-        } else {
-          event.preventDefault();
-        }
+  const checkSomething = (event) => {
+    const id = event.target.id;
+    const fitsPattern = !finalPattern.test(event.target.value);
+    const booleanPointer = {
+      "start-time-input": fitsPattern && start() !== null,
+      "end-time-input": fitsPattern && end() !== null,
+    };
+
+    const idWAction = booleanPointer[id] ? id + " set" : id;
+
+    switch (idWAction) {
+      case "start-time-input set":
+        setStart(null);
+        break;
+      case "end-time-input set":
+        setEnd(null);
+        break;
     }
   };
 
@@ -185,25 +229,67 @@ export const Calendar = () => {
       <Row>
         <Col md={{ span: 6, offset: 3 }}>
           {formDay() !== null && (
-            <Form>
-              <Form.Group class="mb-3" controlId="formBasicEmail">
-                <Form.Label>Start</Form.Label>
-                <Form.Control
-                  type="text"
-                  inputmode="numeric"
-                  onKeyDown={checkTime}
-                  id="time-input"
-                  placeholder="08:00"
-                />
-              </Form.Group>
-              <Form.Group class="mb-3" controlId="formBasicPassword">
-                <Form.Label>End</Form.Label>
-                <Form.Control type="datetime-local" value={"08:00"} />
-              </Form.Group>
-              <Button variant="primary" type="submit">
-                Submit
-              </Button>
-            </Form>
+            <>
+              <h3 className="text-center mb-3">
+                shift date: {formDay().format("MMMM DD")}
+              </h3>
+              <Form class="mb-3">
+                <Row>
+                  <Col span={6}>
+                    <Form.Group class="mb-3" as={Col}>
+                      <Form.Label>Start</Form.Label>
+                      <Form.Control
+                        type="text"
+                        inputmode="numeric"
+                        onKeyDown={checkTime}
+                        onInput={checkSomething}
+                        id="start-time-input"
+                        placeholder="08:00"
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col span={6}>
+                    {start() !== null && (
+                      <Form.Group class="mb-3" as={Col}>
+                        <Form.Label>End</Form.Label>
+                        <Form.Control
+                          type="text"
+                          onKeyDown={checkTime}
+                          onInput={checkSomething}
+                          inputmode="numeric"
+                          id="end-time-input"
+                          placeholder={start()
+                            .clone()
+                            .add("8", "hours")
+                            .format("HH:mm")}
+                        />
+                      </Form.Group>
+                    )}
+                  </Col>
+                </Row>
+                {start() !== null && end() !== null && (
+                  <>
+                    <Form.Group class="mb-3">
+                      <Form.Label>Employer</Form.Label>
+                      <Form.Select aria-label="Default select example">
+                        {contracts().map((contract) => (
+                          <option value={contract.employer}>
+                            {contract.employer} - {contract.hourly}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                    <Button variant="primary" type="submit" class="mb-3">
+                      Submit
+                    </Button>
+                    <Alert variant="info">
+                      shift is between {start().format("YYYY-MM-DD HH:mm")} and{" "}
+                      {end().format("YYYY-MM-DD HH:mm")}
+                    </Alert>
+                  </>
+                )}
+              </Form>
+            </>
           )}
         </Col>
       </Row>
