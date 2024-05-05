@@ -9,6 +9,7 @@ import { getContract } from "../utils/apis";
 export const Calendar = () => {
   const { auth } = GlobalState();
   const today = moment().startOf("days");
+  const [flow, setFlow] = createSignal("start");
   const [date, setDate] = createSignal(today);
   const [start, setStart] = createSignal(null);
   const [end, setEnd] = createSignal(null);
@@ -19,7 +20,9 @@ export const Calendar = () => {
   const [calendarDays, setCalendarDays] = createSignal(getDays(today) || []);
 
   createEffect(() => {
-    console.log(contracts());
+    if (end() === null) {
+      setFlow("start");
+    }
   });
 
   const shiftCalender = (position) => {
@@ -36,13 +39,31 @@ export const Calendar = () => {
   };
 
   const shiftForm = (day) => {
-    setFormDay(day);
-    if (start() !== null) {
-      const changedDate = formDay().clone().add(start().hours(), "hours");
-      const days = changedDate.diff(start(), "days");
-      const newStart = start().clone().add(days, "day");
-      setStart(newStart);
-      end() !== null && setEnd(end().clone().add(days, "day"));
+    switch (flow()) {
+      case "start":
+        setFormDay(day);
+        if (start() !== null) {
+          const changedDate = formDay().clone().add(start().hours(), "hours");
+          const days = changedDate.diff(start(), "days");
+          const newStart = start().clone().add(days, "day");
+          setStart(newStart);
+          end() !== null && setEnd(end().clone().add(days, "day"));
+        }
+        break;
+      case "end":
+        if (end() !== null) {
+          const changedDate = day.clone().add(end().hours(), "hours");
+          setEnd(changedDate);
+          const hourDiff = changedDate.diff(start(), "hours");
+          if (hourDiff <= 0) {
+            const newStart = start()
+              .clone()
+              .subtract(Math.ceil((hourDiff * -1) / 24), "days");
+            setStart(newStart);
+            setFormDay(newStart.clone().startOf("day"));
+          }
+        }
+        break;
     }
   };
 
@@ -71,6 +92,7 @@ export const Calendar = () => {
         const hourDiff = newDate.diff(start(), "hours");
         hourDiff <= 0 && newDate.add(1, "days");
         setEnd(newDate);
+        document.getElementById("end-time-input").focus();
         break;
     }
   };
@@ -85,6 +107,7 @@ export const Calendar = () => {
       case "ArrowRight":
       case "ArrowLeft":
       case ":":
+      case "Tab":
         break;
       case "number":
         const futureValue = event.target.value + event.key;
@@ -122,6 +145,18 @@ export const Calendar = () => {
     }
   };
 
+  const chooseFlow = (event) => {
+    switch (event.target.id) {
+      case "start-time-input":
+        setFlow("start");
+        break;
+      case "end-time-input":
+        setFlow("end");
+        break;
+    }
+    console.log(event.target.id);
+  };
+
   return (
     <>
       <Row>
@@ -148,7 +183,7 @@ export const Calendar = () => {
               </svg>
             </button>
             <div>
-              <h2 className="text-center">Calendar</h2>
+              <h2 className="text-center">Choose a {flow()} date</h2>
               <p className="text-center">
                 period: {date().format("MMMM")} {date().format("YYYY")}
               </p>
@@ -245,6 +280,7 @@ export const Calendar = () => {
                         onInput={checkSomething}
                         id="start-time-input"
                         placeholder="08:00"
+                        onFocus={chooseFlow}
                       />
                     </Form.Group>
                   </Col>
@@ -262,6 +298,7 @@ export const Calendar = () => {
                             .clone()
                             .add("8", "hours")
                             .format("HH:mm")}
+                          onFocus={chooseFlow}
                         />
                       </Form.Group>
                     )}
