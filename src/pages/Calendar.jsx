@@ -47,7 +47,15 @@ export const Calendar = () => {
           const days = changedDate.diff(start(), "days");
           const newStart = start().clone().add(days, "day");
           setStart(newStart);
-          end() !== null && setEnd(end().clone().add(days, "day"));
+          if (end() !== null) {
+            const hourDiff = end().diff(start(), "hours");
+            if (hourDiff <= 0) {
+              const newEnd = end()
+                .clone()
+                .add(Math.ceil((hourDiff * -1) / 24), "days");
+              setEnd(newEnd);
+            }
+          }
         }
         break;
       case "end":
@@ -66,6 +74,8 @@ export const Calendar = () => {
         break;
     }
   };
+
+  const colonPattern = /^[01][0-9]$|^[2][0-3]$/;
 
   const twoPatterh =
     /^[2]$|^[2][0-3]$|^[2][0-3][\:]$|^[2][0-3][\:][0-5]$|^[2][0-3][\:][0-5][0-9]$/;
@@ -92,7 +102,6 @@ export const Calendar = () => {
         const hourDiff = newDate.diff(start(), "hours");
         hourDiff <= 0 && newDate.add(1, "days");
         setEnd(newDate);
-        document.getElementById("end-time-input").focus();
         break;
     }
   };
@@ -126,35 +135,55 @@ export const Calendar = () => {
   };
 
   const checkSomething = (event) => {
+    const { inputType } = event;
     const id = event.target.id;
-    const fitsPattern = !finalPattern.test(event.target.value);
-    const booleanPointer = {
-      "start-time-input": fitsPattern && start() !== null,
-      "end-time-input": fitsPattern && end() !== null,
-    };
+    const unfitsPattern = !finalPattern.test(event.target.value);
 
-    const idWAction = booleanPointer[id] ? id + " set" : id;
+    switch (id) {
+      case "start-time-input":
+        unfitsPattern && start() !== null && setStart(null);
+        break;
+      case "end-time-input":
+        unfitsPattern && end() !== null && setEnd(null);
+        break;
+    }
 
-    switch (idWAction) {
-      case "start-time-input set":
-        setStart(null);
-        break;
-      case "end-time-input set":
-        setEnd(null);
-        break;
+    if (colonPattern.test(event.target.value) && inputType === "insertText") {
+      document.getElementById(id).value += ":";
     }
   };
 
   const chooseFlow = (event) => {
-    switch (event.target.id) {
-      case "start-time-input":
-        setFlow("start");
-        break;
-      case "end-time-input":
-        setFlow("end");
-        break;
-    }
-    console.log(event.target.id);
+    const nextFlow = event.target.checked ? "end" : "start";
+    setFlow(nextFlow);
+  };
+
+  const sendShift = async (event) => {
+    event.preventDefault();
+    const {
+      target: {
+        employer: { value: employer },
+      },
+    } = event;
+
+    const { contract_id } = contracts().find(
+      (contract) => contract.employer === employer
+    );
+
+    const tzFormat = "YYYY-MM-DD HH:mm:ssZ";
+    const payload = {
+      contract_id: contract_id,
+      start_time: start().format(tzFormat).substring(0, 22),
+      end_time: end().format(tzFormat).substring(0, 22),
+    };
+
+    const request = await fetch("http://localhost:8000/shifts/", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${auth()}` },
+      body: JSON.stringify(payload),
+    });
+
+    alert(request.status);
   };
 
   return (
@@ -209,7 +238,7 @@ export const Calendar = () => {
               </svg>
             </button>
           </div>
-          <Table bordered variant="light" responsive>
+          <Table bordered variant="light" responsive className="mb-6">
             <thead>
               <tr>
                 <th>Sun</th>
@@ -229,14 +258,26 @@ export const Calendar = () => {
                     <tr>
                       {calendarDays()
                         .slice(i * 7, i * 7 + 7)
-                        .map((day) => {
+                        .map((dayObject) => {
+                          const { day, cDay } = dayObject;
+
+                          /* const isSameDay =
+                            start() !== null &&
+                            start().format("YYYY-MM-DD") ===
+                              day.format("YYYY-MM-DD");
+
+                          if (isSameDay) {
+                            const hourDiff = start().clone().diff(day, "hours");
+                            console.log(hourDiff);
+                          } */
+
                           const bg =
-                            day.day.month() === date().month()
+                            day.month() === date().month()
                               ? "white"
                               : "#d6d6d6";
 
                           const focusColor =
-                            day.day.format("MMDDYYYY") ===
+                            day.format("MMDDYYYY") ===
                             moment().format("MMDDYYYY")
                               ? "blue"
                               : "black";
@@ -247,10 +288,10 @@ export const Calendar = () => {
                                 variant="outline"
                                 style={{ color: focusColor }}
                                 onClick={() => {
-                                  shiftForm(day.day);
+                                  shiftForm(day);
                                 }}
                               >
-                                {day.cDay}
+                                {cDay}
                               </Button>
                             </td>
                           );
@@ -265,13 +306,31 @@ export const Calendar = () => {
         <Col md={{ span: 6, offset: 3 }}>
           {formDay() !== null && (
             <>
-              <h3 className="text-center mb-3">
+              <h3 className="text-center mb-3 mt-3">
                 shift date: {formDay().format("MMMM DD")}
               </h3>
-              <Form class="mb-3">
+              <Form class="mb-3" onSubmit={sendShift}>
                 <Row>
-                  <Col span={6}>
-                    <Form.Group class="mb-3" as={Col}>
+                  <Col md={12}>
+                    <Form.Group class="mb-3">
+                      <Form.Label>Employer</Form.Label>
+                      <Form.Select
+                        aria-label="Default select example"
+                        name="employer"
+                      >
+                        {contracts().map((contract) => (
+                          <option value={contract.employer}>
+                            {contract.employer} - {contract.hourly}
+                          </option>
+                        ))}
+                      </Form.Select>
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                <Row>
+                  <Col md={4}>
+                    <Form.Group class="mb-3">
                       <Form.Label>Start</Form.Label>
                       <Form.Control
                         type="text"
@@ -280,50 +339,59 @@ export const Calendar = () => {
                         onInput={checkSomething}
                         id="start-time-input"
                         placeholder="08:00"
-                        onFocus={chooseFlow}
                       />
                     </Form.Group>
                   </Col>
-                  <Col span={6}>
-                    {start() !== null && (
-                      <Form.Group class="mb-3" as={Col}>
-                        <Form.Label>End</Form.Label>
-                        <Form.Control
-                          type="text"
-                          onKeyDown={checkTime}
-                          onInput={checkSomething}
-                          inputmode="numeric"
-                          id="end-time-input"
-                          placeholder={start()
-                            .clone()
-                            .add("8", "hours")
-                            .format("HH:mm")}
-                          onFocus={chooseFlow}
-                        />
-                      </Form.Group>
-                    )}
+                  <Col md={4}>
+                    <Form.Group class="mb-3">
+                      <Form.Label>End</Form.Label>
+                      <Form.Control
+                        type="text"
+                        disabled={start() === null}
+                        onKeyDown={checkTime}
+                        onInput={checkSomething}
+                        inputmode="numeric"
+                        id="end-time-input"
+                        placeholder={
+                          start() !== null
+                            ? start().clone().add("8", "hours").format("HH:mm")
+                            : "16:00"
+                        }
+                      />
+                    </Form.Group>
+                  </Col>
+                  <Col md={4}>
+                    <Form.Group class="mb-3">
+                      <Form.Label
+                        style={{
+                          overflow: "clip",
+                          "text-overflow": "ellipsis",
+                        }}
+                      >
+                        Select end date
+                      </Form.Label>
+                      <Form.Check
+                        disabled={end() === null}
+                        type="switch"
+                        id="custom-switch"
+                        onChange={chooseFlow}
+                      />
+                    </Form.Group>
                   </Col>
                 </Row>
+
                 {start() !== null && end() !== null && (
-                  <>
-                    <Form.Group class="mb-3">
-                      <Form.Label>Employer</Form.Label>
-                      <Form.Select aria-label="Default select example">
-                        {contracts().map((contract) => (
-                          <option value={contract.employer}>
-                            {contract.employer} - {contract.hourly}
-                          </option>
-                        ))}
-                      </Form.Select>
-                    </Form.Group>
-                    <Button variant="primary" type="submit" class="mb-3">
-                      Submit
-                    </Button>
-                    <Alert variant="info">
-                      shift is between {start().format("YYYY-MM-DD HH:mm")} and{" "}
-                      {end().format("YYYY-MM-DD HH:mm")}
-                    </Alert>
-                  </>
+                  <Row>
+                    <Col>
+                      <Button variant="primary" type="submit" class="mb-3">
+                        Submit
+                      </Button>
+                      <Alert variant="warning">
+                        shift is between {start().format("YYYY-MM-DD HH:mm")}{" "}
+                        and {end().format("YYYY-MM-DD HH:mm")}
+                      </Alert>{" "}
+                    </Col>
+                  </Row>
                 )}
               </Form>
             </>

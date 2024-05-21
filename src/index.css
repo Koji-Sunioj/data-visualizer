@@ -15,6 +15,13 @@ body {
 
 }
 
+#custom-switch {
+  width: 40px;
+  height: 20px;
+  display: block; 
+  margin-top: 8px;
+}
+
 .menu-button {
   background-color: transparent;
   background-repeat: no-repeat;
