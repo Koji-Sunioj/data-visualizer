@@ -4,7 +4,7 @@ import { Col, Row, Table, Button, Form, Alert } from "solid-bootstrap";
 
 import { GlobalState } from "..";
 import { getDays } from "../utils/utils";
-import { getContract } from "../utils/apis";
+import { getContract, getCalendarDays } from "../utils/apis";
 
 export const Calendar = () => {
   const { auth } = GlobalState();
@@ -14,10 +14,18 @@ export const Calendar = () => {
   const [start, setStart] = createSignal(null);
   const [end, setEnd] = createSignal(null);
   const [formDay, setFormDay] = createSignal(null);
+  const [calendarParams, setCalendarParams] = createSignal([
+    auth(),
+    date().month() + 1,
+    date().year(),
+  ]);
+
   const [contracts] = createResource(auth(), getContract, {
     initialValue: [],
   });
-  const [calendarDays, setCalendarDays] = createSignal(getDays(today) || []);
+  const [calendarDays] = createResource(calendarParams, getCalendarDays, {
+    initialValue: [],
+  });
 
   createEffect(() => {
     if (end() === null) {
@@ -32,10 +40,9 @@ export const Calendar = () => {
       .startOf("days")
       .add(position, "months");
 
-    const newCalendar = getDays(newDate);
+    setCalendarParams([auth(), newDate.month() + 1, newDate.year()]);
 
     setDate(newDate);
-    setCalendarDays(newCalendar);
   };
 
   const shiftForm = (day) => {
@@ -238,7 +245,13 @@ export const Calendar = () => {
               </svg>
             </button>
           </div>
-          <Table bordered variant="light" responsive className="mb-6">
+          <Table
+            bordered
+            variant="light"
+            responsive
+            className="mb-6"
+            style={{ opacity: calendarDays.loading ? "50%" : "100%" }}
+          >
             <thead>
               <tr>
                 <th>Sun</th>
@@ -252,52 +265,38 @@ export const Calendar = () => {
             </thead>
             <tbody>
               {calendarDays().length > 0 &&
-                Array(calendarDays().length / 7)
-                  .fill()
-                  .map((value, i) => (
-                    <tr>
-                      {calendarDays()
-                        .slice(i * 7, i * 7 + 7)
-                        .map((dayObject) => {
-                          const { day, cDay } = dayObject;
+                calendarDays().map((list, i) => (
+                  <tr>
+                    {list.map((day) => {
+                      const momentDay = moment(day);
 
-                          /* const isSameDay =
-                            start() !== null &&
-                            start().format("YYYY-MM-DD") ===
-                              day.format("YYYY-MM-DD");
+                      const bg =
+                        momentDay.month() === date().month()
+                          ? "white"
+                          : "#d6d6d6";
 
-                          if (isSameDay) {
-                            const hourDiff = start().clone().diff(day, "hours");
-                            console.log(hourDiff);
-                          } */
+                      const focusColor =
+                        momentDay.format("MMDDYYYY") ===
+                        moment().format("MMDDYYYY")
+                          ? "blue"
+                          : "black";
 
-                          const bg =
-                            day.month() === date().month()
-                              ? "white"
-                              : "#d6d6d6";
-
-                          const focusColor =
-                            day.format("MMDDYYYY") ===
-                            moment().format("MMDDYYYY")
-                              ? "blue"
-                              : "black";
-
-                          return (
-                            <td style={{ "background-color": bg }}>
-                              <Button
-                                variant="outline"
-                                style={{ color: focusColor }}
-                                onClick={() => {
-                                  shiftForm(day);
-                                }}
-                              >
-                                {cDay}
-                              </Button>
-                            </td>
-                          );
-                        })}
-                    </tr>
-                  ))}
+                      return (
+                        <td style={{ "background-color": bg }}>
+                          <Button
+                            variant="outline"
+                            style={{ color: focusColor }}
+                            onClick={() => {
+                              shiftForm(momentDay);
+                            }}
+                          >
+                            {day.substring(8, 10)}
+                          </Button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
             </tbody>
           </Table>
         </Col>
@@ -389,7 +388,7 @@ export const Calendar = () => {
                       <Alert variant="warning">
                         shift is between {start().format("YYYY-MM-DD HH:mm")}{" "}
                         and {end().format("YYYY-MM-DD HH:mm")}
-                      </Alert>{" "}
+                      </Alert>
                     </Col>
                   </Row>
                 )}
