@@ -2,7 +2,7 @@ import { Form, Button, Row, Col } from "solid-bootstrap";
 import { useNavigate } from "@solidjs/router";
 import { GlobalState } from "..";
 
-const SignIn = () => {
+export const SignIn = () => {
   const { setAuth } = GlobalState();
   const navigate = useNavigate();
 
@@ -64,5 +64,3 @@ const SignIn = () => {
     </Row>
   );
 };
-
-export default SignIn;

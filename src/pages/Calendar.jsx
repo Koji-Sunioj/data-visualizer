@@ -3,7 +3,6 @@ import { createSignal, createResource, createEffect } from "solid-js";
 import { Col, Row, Table, Button, Form, Alert } from "solid-bootstrap";
 
 import { GlobalState } from "..";
-import { getDays } from "../utils/utils";
 import { getContract, getCalendarDays } from "../utils/apis";
 
 export const Calendar = () => {
@@ -28,6 +27,12 @@ export const Calendar = () => {
   });
 
   createEffect(() => {
+    console.log(calendarParams());
+    const [, month, year] = calendarParams();
+    const newDate = new Date(year, month - 1, 1);
+    if (calendarDays().length > 0 && calendarDays.state === "ready") {
+      setDate(moment(newDate));
+    }
     if (end() === null) {
       setFlow("start");
     }
@@ -39,10 +44,7 @@ export const Calendar = () => {
       .startOf("month")
       .startOf("days")
       .add(position, "months");
-
     setCalendarParams([auth(), newDate.month() + 1, newDate.year()]);
-
-    setDate(newDate);
   };
 
   const shiftForm = (day) => {
@@ -199,6 +201,7 @@ export const Calendar = () => {
         <Col md={{ span: 6, offset: 3 }}>
           <div style={{ display: "flex", "justify-content": "space-between" }}>
             <button
+              disabled={calendarDays.loading}
               class="menu-button"
               onClick={() => {
                 shiftCalender(-1);
@@ -226,6 +229,7 @@ export const Calendar = () => {
             </div>
             <button
               class="menu-button"
+              disabled={calendarDays.loading}
               onClick={() => {
                 shiftCalender(1);
               }}
@@ -245,27 +249,23 @@ export const Calendar = () => {
               </svg>
             </button>
           </div>
-          <Table
-            bordered
-            variant="light"
-            responsive
-            className="mb-6"
-            style={{ opacity: calendarDays.loading ? "50%" : "100%" }}
-          >
-            <thead>
-              <tr>
-                <th>Sun</th>
-                <th>Mon</th>
-                <th>Tue</th>
-                <th>Wed</th>
-                <th>Thu</th>
-                <th>Fri</th>
-                <th>Sat</th>
-              </tr>
-            </thead>
-            <tbody>
-              {calendarDays().length > 0 &&
-                calendarDays().map((list, i) => (
+          {/*  {calendarDays.loading && <TableSkeleton />} */}
+
+          {calendarDays().length > 0 && (
+            <Table bordered variant="light" responsive className="mb-6">
+              <thead>
+                <tr>
+                  <th>Sun</th>
+                  <th>Mon</th>
+                  <th>Tue</th>
+                  <th>Wed</th>
+                  <th>Thu</th>
+                  <th>Fri</th>
+                  <th>Sat</th>
+                </tr>
+              </thead>
+              <tbody>
+                {calendarDays().map((list, i) => (
                   <tr>
                     {list.map((day) => {
                       const momentDay = moment(day);
@@ -297,8 +297,9 @@ export const Calendar = () => {
                     })}
                   </tr>
                 ))}
-            </tbody>
-          </Table>
+              </tbody>
+            </Table>
+          )}
         </Col>
       </Row>
       <Row>

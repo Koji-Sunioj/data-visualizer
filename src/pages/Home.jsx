@@ -1,8 +1,8 @@
 import { Row, Col } from "solid-bootstrap";
 import { GlobalState } from "..";
 
-const Home = () => {
-  const { auth, setAuth } = GlobalState();
+export const Home = () => {
+  const { auth } = GlobalState();
 
   return (
     <Row>
@@ -17,5 +17,3 @@ const Home = () => {
     </Row>
   );
 };
-
-export default Home;

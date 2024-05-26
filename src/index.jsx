@@ -4,8 +4,8 @@ import { Router, Route } from "@solidjs/router";
 import { createSignal, createContext, useContext } from "solid-js";
 
 import "./index.css";
-import Home from "./pages/Home";
-import SignIn from "./pages/SignIn";
+import { Home } from "./pages/Home";
+import { SignIn } from "./pages/SignIn";
 import { Contracts } from "./pages/Contracts";
 import { Calendar } from "./pages/Calendar";
 import { Container, Offcanvas } from "solid-bootstrap";
@@ -32,7 +32,6 @@ const root = document.getElementById("root");
 
 const signOut = () => {
   localStorage.removeItem("token");
-
   setAuth(null);
 };
 ``;
