@@ -27,7 +27,7 @@ export const Calendar = () => {
   });
 
   createEffect(() => {
-    console.log(calendarParams());
+    console.log(calendarDays());
     const [, month, year] = calendarParams();
     const newDate = new Date(year, month - 1, 1);
     if (calendarDays().length > 0 && calendarDays.state === "ready") {
@@ -267,7 +267,9 @@ export const Calendar = () => {
               <tbody>
                 {calendarDays().map((list, i) => (
                   <tr>
-                    {list.map((day) => {
+                    {list.map((record) => {
+                      const { day, shifts } = record;
+                      console.log(shifts);
                       const momentDay = moment(day);
 
                       const bg =
@@ -292,6 +294,12 @@ export const Calendar = () => {
                           >
                             {day.substring(8, 10)}
                           </Button>
+                          {shifts.length > 0 &&
+                            shifts.map((shift) => (
+                              <p style={{ "font-weight": "2px" }}>
+                                {shift.start}-{shift.end}
+                              </p>
+                            ))}
                         </td>
                       );
                     })}

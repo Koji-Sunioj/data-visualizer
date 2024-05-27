@@ -1,19 +1,30 @@
-/* @refresh reload */
 import { render } from "solid-js/web";
 import { Router, Route } from "@solidjs/router";
-import { createSignal, createContext, useContext } from "solid-js";
+import {
+  createSignal,
+  createContext,
+  useContext,
+  createEffect,
+  createResource,
+} from "solid-js";
 
 import "./index.css";
+
 import { Home } from "./pages/Home";
 import { SignIn } from "./pages/SignIn";
-import { Contracts } from "./pages/Contracts";
+import { checkSession } from "./utils/apis";
 import { Calendar } from "./pages/Calendar";
+import { Contracts } from "./pages/Contracts";
 import { Container, Offcanvas } from "solid-bootstrap";
 
 const StateContext = createContext();
 
 const [show, setShow] = createSignal(false);
-const [auth, setAuth] = createSignal(localStorage.getItem("token") || null);
+const [auth, { mutate }] = createResource(
+  localStorage.getItem("token"),
+  checkSession,
+  { initialValue: null }
+);
 
 const handleOpen = () => {
   const menuButton = document.getElementById("menu-button");
@@ -32,7 +43,7 @@ const root = document.getElementById("root");
 
 const signOut = () => {
   localStorage.removeItem("token");
-  setAuth(null);
+  mutate(null);
 };
 ``;
 render(
@@ -101,7 +112,7 @@ render(
       <StateContext.Provider
         value={{
           auth: auth,
-          setAuth: setAuth,
+          setAuth: mutate,
         }}
       >
         <Container>
