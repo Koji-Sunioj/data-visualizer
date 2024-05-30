@@ -32,6 +32,8 @@ export const SignIn = () => {
         setAuth(token);
         navigate("/", { replace: true });
         break;
+      default:
+        alert("there was a problem with those credentials");
     }
   };
 

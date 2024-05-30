@@ -115,7 +115,7 @@ render(
           setAuth: mutate,
         }}
       >
-        <Container>
+        <Container fluid>
           <Router>
             <Route path="/" component={Home} />
             <Route path="/sign-in" component={SignIn} />

@@ -198,7 +198,7 @@ export const Calendar = () => {
   return (
     <>
       <Row>
-        <Col md={{ span: 6, offset: 3 }}>
+        <Col lg={{ span: 10, offset: 1 }}>
           <div style={{ display: "flex", "justify-content": "space-between" }}>
             <button
               disabled={calendarDays.loading}
@@ -269,13 +269,12 @@ export const Calendar = () => {
                   <tr>
                     {list.map((record) => {
                       const { day, shifts } = record;
-                      console.log(shifts);
+
                       const momentDay = moment(day);
 
-                      const bg =
-                        momentDay.month() === date().month()
-                          ? "white"
-                          : "#d6d6d6";
+                      const sameMonth = momentDay.month() === date().month();
+
+                      const bg = sameMonth ? "white" : "#d6d6d6";
 
                       const focusColor =
                         momentDay.format("MMDDYYYY") ===
@@ -284,22 +283,50 @@ export const Calendar = () => {
                           : "black";
 
                       return (
-                        <td style={{ "background-color": bg }}>
+                        <td
+                          style={{
+                            "background-color": bg,
+                          }}
+                        >
                           <Button
+                            disabled={!sameMonth}
                             variant="outline"
-                            style={{ color: focusColor }}
+                            class="calendar-button"
+                            style={{
+                              color: focusColor,
+                            }}
                             onClick={() => {
                               shiftForm(momentDay);
                             }}
                           >
-                            {day.substring(8, 10)}
+                            <div class="calendar-info">
+                              <div>{day.substring(8, 10)}</div>
+                              <div
+                                class={
+                                  shifts.length > 0
+                                    ? "calendar-shift fill"
+                                    : "calendar-shift"
+                                }
+                              >
+                                {shifts.length > 0 &&
+                                  shifts.slice(0, 3).map((shift) => (
+                                    <div class="shift">
+                                      <div class="shift-employer">
+                                        {shift.employer}
+                                      </div>
+                                      <div class="shift-times">
+                                        {shift.start}-{shift.end}
+                                      </div>
+                                    </div>
+                                  ))}
+                                {shifts.length > 3 && (
+                                  <div class="shift-count">
+                                    +{shifts.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </Button>
-                          {shifts.length > 0 &&
-                            shifts.map((shift) => (
-                              <p style={{ "font-weight": "2px" }}>
-                                {shift.start}-{shift.end}
-                              </p>
-                            ))}
                         </td>
                       );
                     })}
@@ -311,7 +338,7 @@ export const Calendar = () => {
         </Col>
       </Row>
       <Row>
-        <Col md={{ span: 6, offset: 3 }}>
+        <Col sm={{ span: 6, offset: 3 }}>
           {formDay() !== null && (
             <>
               <h3 className="text-center mb-3 mt-3">
