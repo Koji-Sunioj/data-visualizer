@@ -13,7 +13,7 @@ import "./index.css";
 import { Home } from "./pages/Home";
 import { SignIn } from "./pages/SignIn";
 import { checkSession } from "./utils/apis";
-import { Calendar } from "./pages/Calendar";
+import { Calendar } from "./pages/Calendar.jsx";
 import { Contracts } from "./pages/Contracts";
 import { Container, Offcanvas } from "solid-bootstrap";
 

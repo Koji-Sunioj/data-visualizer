@@ -198,7 +198,7 @@ export const Calendar = () => {
   return (
     <>
       <Row>
-        <Col lg={{ span: 10, offset: 1 }}>
+        <Col /* lg={{ span: 10, offset: 1 }} */>
           <div style={{ display: "flex", "justify-content": "space-between" }}>
             <button
               disabled={calendarDays.loading}
@@ -282,6 +282,9 @@ export const Calendar = () => {
                           ? "blue"
                           : "black";
 
+                      const shiftDisplay =
+                        shifts.length === 0 ? 0 : shifts.length > 3 ? 2 : 3;
+
                       return (
                         <td
                           style={{
@@ -308,19 +311,19 @@ export const Calendar = () => {
                                     : "calendar-shift"
                                 }
                               >
-                                {shifts.length > 0 &&
-                                  shifts.slice(0, 3).map((shift) => (
-                                    <div class="shift">
-                                      <div class="shift-employer">
-                                        {shift.employer}
-                                      </div>
-                                      <div class="shift-times">
-                                        {shift.start}-{shift.end}
-                                      </div>
+                                {shifts.slice(0, shiftDisplay).map((shift) => (
+                                  <div class="shift">
+                                    <div class="shift-employer">
+                                      {shift.employer}
                                     </div>
-                                  ))}
-                                {shifts.length > 3 && (
-                                  <div class="shift-count">
+                                    <div class="shift-times">
+                                      {shift.start}-{shift.end}
+                                    </div>
+                                  </div>
+                                ))}
+
+                                {shiftDisplay == 2 && (
+                                  <div class="shift-overflow">
                                     +{shifts.length - 3}
                                   </div>
                                 )}

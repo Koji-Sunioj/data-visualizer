@@ -60,20 +60,17 @@ table {
   text-align: left;
   display: flex; 
   height: 100%;
-  gap: 4px;
+  flex-direction: column;
+
 }
-
-
-
 
 .calendar-shift.fill {
   width: 100%;
-  
+  border-top: 1px solid red;
 }
 
 
-.shift-count {
-  border-left: 1px solid red;
+.shift-overflow {
   padding-left: 4px;
   font-size: 10px;
 }
@@ -84,24 +81,31 @@ table {
   padding-top: 2px;
   box-sizing: border-box;
   overflow: clip;
+  
 }
 
 .shift-employer {
-  border-left: 1px solid red;
   padding-left: 4px;
 }
 
 .shift-employer, .shift-times {
   font-size: var(--calendar-item);
+  text-overflow: ellipsis;
+  width: 50px;
+  overflow:hidden;
+  white-space: nowrap;
+  display: inline-block; 
 }
 
 .shift {
   display: flex;
   justify-content: space-between;
+  min-width: 0;
 }
 
-@media only screen and (max-width: 1000px) {
+
+@media only screen and (max-width: 576px) {
   .shift-times {
     display: none;
-  }
+  } 
 }
