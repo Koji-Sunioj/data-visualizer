@@ -1,4 +1,5 @@
 import moment from "moment";
+import { onMount } from "solid-js";
 import { createSignal, createResource, createEffect } from "solid-js";
 import { Col, Row, Table, Button, Form, Alert } from "solid-bootstrap";
 
@@ -18,23 +19,76 @@ export const Calendar = () => {
     date().month() + 1,
     date().year(),
   ]);
+  const [calendarDays, setCalendarDays] = createSignal([]);
 
   const [contracts] = createResource(auth(), getContract, {
     initialValue: [],
   });
-  const [calendarDays] = createResource(calendarParams, getCalendarDays, {
-    initialValue: [],
+
+  onMount(() => {
+    (async () => {
+      if (calendarDays().length === 0) {
+        console.log("mounted and fetching");
+        const days = await getCalendarDays(calendarParams());
+        setCalendarDays(days);
+      }
+    })();
   });
 
   createEffect(() => {
-    console.log(calendarDays());
-    const [, month, year] = calendarParams();
-    const newDate = new Date(year, month - 1, 1);
-    if (calendarDays().length > 0 && calendarDays.state === "ready") {
+    const [, newMonth, newYear] = calendarParams();
+    const [uiYear, uiMonth] = [
+      Number(date().format("YYYY")),
+      Number(date().format("MM")),
+    ];
+
+    if (uiYear !== newYear || uiMonth !== newMonth) {
+      const newDate = new Date(newYear, newMonth - 1, 1);
       setDate(moment(newDate));
+      (async () => {
+        console.log("fetching new dates");
+        const days = await getCalendarDays(calendarParams());
+        setCalendarDays(days);
+      })();
     }
+
     if (end() === null) {
       setFlow("start");
+    }
+
+    if (start() !== null && end() !== null) {
+      alert("triggered");
+      const newStartDate = start().format("YYYY-MM-DD");
+      const newEndDate = end().format("YYYY-MM-DD");
+      const newStartTime = start().format("HH:mm");
+      const newEndTime = end().format("HH:mm");
+
+      let parentIndex = null,
+        childIndex = null;
+      const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
+
+      calendarDays().forEach((shift, index) => {
+        const something = shift.findIndex((date) => date.day === newStartDate);
+        if (something > -1) {
+          [parentIndex, childIndex] = [index, something];
+        }
+      });
+
+      if (
+        calendarDaysClone[parentIndex][childIndex] !== undefined &&
+        calendarDaysClone[parentIndex][childIndex].shifts.length === 0
+      ) {
+        const employer = document.querySelector("[name='employer']").value;
+
+        calendarDaysClone[parentIndex][childIndex].shifts.push({
+          employer: employer,
+          start: newStartTime,
+          end: newEndTime,
+          state: "unsaved",
+        });
+        console.log(calendarDaysClone);
+        setCalendarDays(calendarDaysClone);
+      }
     }
   });
 
@@ -201,7 +255,6 @@ export const Calendar = () => {
         <Col /* lg={{ span: 10, offset: 1 }} */>
           <div style={{ display: "flex", "justify-content": "space-between" }}>
             <button
-              disabled={calendarDays.loading}
               class="menu-button"
               onClick={() => {
                 shiftCalender(-1);
@@ -229,7 +282,6 @@ export const Calendar = () => {
             </div>
             <button
               class="menu-button"
-              disabled={calendarDays.loading}
               onClick={() => {
                 shiftCalender(1);
               }}
@@ -324,7 +376,7 @@ export const Calendar = () => {
 
                                 {shiftDisplay == 2 && (
                                   <div class="shift-overflow">
-                                    +{shifts.length - 3}
+                                    +{shifts.length - 2}
                                   </div>
                                 )}
                               </div>
