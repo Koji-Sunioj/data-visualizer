@@ -45,7 +45,12 @@ const signOut = () => {
   localStorage.removeItem("token");
   mutate(null);
 };
-``;
+
+const today = new Date();
+const calendarString = `/calendar/${today.getFullYear()}/${
+  today.getMonth() + 1
+}`;
+
 render(
   () => (
     <>
@@ -72,7 +77,7 @@ render(
             {auth() !== null ? (
               <>
                 <li>
-                  <a href="/calendar">Shift calendar</a>
+                  <a href={calendarString}>Shift calendar</a>
                 </li>
                 <li>
                   <a href="/contracts">Manage contracts</a>
@@ -121,7 +126,7 @@ render(
             <Route path="/sign-in" component={SignIn} />
             {auth() !== null && (
               <>
-                <Route path="/calendar" component={Calendar} />
+                <Route path="/calendar/:year/:month" component={Calendar} />
                 <Route path="/contracts" component={Contracts} />
               </>
             )}

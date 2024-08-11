@@ -1,5 +1,6 @@
 import moment from "moment";
 import { onMount } from "solid-js";
+import { useParams, useNavigate } from "@solidjs/router";
 import { createSignal, createResource, createEffect } from "solid-js";
 import { Col, Row, Table, Button, Form, Alert } from "solid-bootstrap";
 
@@ -8,19 +9,16 @@ import { getContract, getCalendarDays } from "../utils/apis";
 
 export const Calendar = () => {
   const { auth } = GlobalState();
-  const today = moment().startOf("days");
+  const { year, month } = useParams();
+  const params = useParams();
+  const today = moment(new Date(year, month - 1, 1)); //moment().startOf("days");
+
   const [flow, setFlow] = createSignal("start");
   const [date, setDate] = createSignal(today);
   const [start, setStart] = createSignal(null);
   const [end, setEnd] = createSignal(null);
   const [formDay, setFormDay] = createSignal(null);
-  const [calendarParams, setCalendarParams] = createSignal([
-    auth(),
-    date().month() + 1,
-    date().year(),
-  ]);
   const [calendarDays, setCalendarDays] = createSignal([]);
-
   const [contracts] = createResource(auth(), getContract, {
     initialValue: [],
   });
@@ -29,25 +27,29 @@ export const Calendar = () => {
     (async () => {
       if (calendarDays().length === 0) {
         console.log("mounted and fetching");
-        const days = await getCalendarDays(calendarParams());
+        const days = await getCalendarDays([
+          auth(),
+          Number(month),
+          Number(year),
+        ]);
         setCalendarDays(days);
       }
     })();
   });
 
   createEffect(() => {
-    const [, newMonth, newYear] = calendarParams();
     const [uiYear, uiMonth] = [
       Number(date().format("YYYY")),
       Number(date().format("MM")),
     ];
+    const [newMonth, newYear] = [Number(params.month), Number(params.year)];
 
     if (uiYear !== newYear || uiMonth !== newMonth) {
       const newDate = new Date(newYear, newMonth - 1, 1);
       setDate(moment(newDate));
       (async () => {
         console.log("fetching new dates");
-        const days = await getCalendarDays(calendarParams());
+        const days = await getCalendarDays([auth(), newMonth, newYear]);
         setCalendarDays(days);
       })();
     }
@@ -57,7 +59,6 @@ export const Calendar = () => {
     }
 
     if (start() !== null && end() !== null) {
-      alert("triggered");
       const newStartDate = start().format("YYYY-MM-DD");
       const newEndDate = end().format("YYYY-MM-DD");
       const newStartTime = start().format("HH:mm");
@@ -91,15 +92,6 @@ export const Calendar = () => {
       }
     }
   });
-
-  const shiftCalender = (position) => {
-    const newDate = date()
-      .clone()
-      .startOf("month")
-      .startOf("days")
-      .add(position, "months");
-    setCalendarParams([auth(), newDate.month() + 1, newDate.year()]);
-  };
 
   const shiftForm = (day) => {
     switch (flow()) {
@@ -245,20 +237,20 @@ export const Calendar = () => {
       headers: { Authorization: `Bearer ${auth()}` },
       body: JSON.stringify(payload),
     });
-
-    alert(request.status);
+    request.status === 200 && window.location.reload();
   };
 
   return (
     <>
       <Row>
-        <Col /* lg={{ span: 10, offset: 1 }} */>
+        <Col>
           <div style={{ display: "flex", "justify-content": "space-between" }}>
-            <button
+            <a
               class="menu-button"
-              onClick={() => {
-                shiftCalender(-1);
-              }}
+              href={`/calendar/${date().format("YYYY")}/${date()
+                .clone()
+                .add(-1, "month")
+                .format("M")}`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -273,18 +265,19 @@ export const Calendar = () => {
                   d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8"
                 ></path>
               </svg>
-            </button>
+            </a>
             <div>
               <h2 className="text-center">Choose a {flow()} date</h2>
               <p className="text-center">
                 period: {date().format("MMMM")} {date().format("YYYY")}
               </p>
             </div>
-            <button
+            <a
               class="menu-button"
-              onClick={() => {
-                shiftCalender(1);
-              }}
+              href={`/calendar/${date().format("YYYY")}/${date()
+                .clone()
+                .add(1, "month")
+                .format("M")}`}
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -299,9 +292,8 @@ export const Calendar = () => {
                   d="M1 8a.5.5 0 0 1 .5-.5h11.793l-3.147-3.146a.5.5 0 0 1 .708-.708l4 4a.5.5 0 0 1 0 .708l-4 4a.5.5 0 0 1-.708-.708L13.293 8.5H1.5A.5.5 0 0 1 1 8"
                 ></path>
               </svg>
-            </button>
+            </a>
           </div>
-          {/*  {calendarDays.loading && <TableSkeleton />} */}
 
           {calendarDays().length > 0 && (
             <Table bordered variant="light" responsive className="mb-6">
