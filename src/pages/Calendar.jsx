@@ -17,6 +17,7 @@ export const Calendar = () => {
   const [date, setDate] = createSignal(today);
   const [start, setStart] = createSignal(null);
   const [end, setEnd] = createSignal(null);
+  const [pushFlag, setPushFlag] = createSignal(false);
   const [formDay, setFormDay] = createSignal(null);
   const [calendarDays, setCalendarDays] = createSignal([]);
   const [contracts] = createResource(auth(), getContract, {
@@ -38,6 +39,7 @@ export const Calendar = () => {
   });
 
   createEffect(() => {
+    console.log(start());
     const [uiYear, uiMonth] = [
       Number(date().format("YYYY")),
       Number(date().format("MM")),
@@ -58,7 +60,7 @@ export const Calendar = () => {
       setFlow("start");
     }
 
-    if (start() !== null && end() !== null) {
+    if (pushFlag()) {
       const newStartDate = start().format("YYYY-MM-DD");
       const newEndDate = end().format("YYYY-MM-DD");
       const newStartTime = start().format("HH:mm");
@@ -67,33 +69,77 @@ export const Calendar = () => {
       let parentIndex = null,
         childIndex = null;
       const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
+      [parentIndex, childIndex] = getIndexes(calendarDaysClone, start());
 
-      calendarDays().forEach((shift, index) => {
-        const something = shift.findIndex((date) => date.day === newStartDate);
-        if (something > -1) {
-          [parentIndex, childIndex] = [index, something];
-        }
-      });
+      const employer = document.querySelector("[name='employer']").value;
 
       if (
         calendarDaysClone[parentIndex][childIndex] !== undefined &&
-        calendarDaysClone[parentIndex][childIndex].shifts.length === 0
+        newEndDate === newStartDate
       ) {
-        const employer = document.querySelector("[name='employer']").value;
-
         calendarDaysClone[parentIndex][childIndex].shifts.push({
           employer: employer,
           start: newStartTime,
           end: newEndTime,
           state: "unsaved",
         });
-        console.log(calendarDaysClone);
-        setCalendarDays(calendarDaysClone);
+      } else if (
+        calendarDaysClone[parentIndex][childIndex] !== undefined &&
+        newEndDate > newStartDate
+      ) {
+        const endDayOne = start().clone().startOf("day").add(24, "hours");
+        const hourDiff = end().clone().diff(endDayOne, "hours");
+        const daysForward = Math.ceil(hourDiff / 24);
+
+        calendarDaysClone[parentIndex][childIndex].shifts.push({
+          employer: employer,
+          start: newStartTime,
+          end: start().clone().endOf("day").format("HH:mm"),
+          state: "unsaved",
+        });
+
+        for (let i = 0; i < daysForward; i++) {
+          const dayForward = endDayOne.clone().add(i, "days");
+          let endForward = null;
+          if (dayForward.format("YYYY-MM-DD") === newEndDate) {
+            endForward = newEndTime;
+          } else {
+            endForward = dayForward.clone().endOf("day").format("HH:mm");
+          }
+
+          [parentIndex, childIndex] = getIndexes(calendarDaysClone, dayForward);
+
+          calendarDaysClone[parentIndex][childIndex].shifts.push({
+            employer: employer,
+            start: dayForward.format("HH:mm"),
+            end: endForward,
+            state: "unsaved",
+          });
+        }
       }
+      setCalendarDays(calendarDaysClone);
+      setPushFlag(false);
     }
   });
 
+  const getIndexes = (calendarDaysClone, targetDate) => {
+    let parentIndex = null,
+      childIndex = null;
+
+    calendarDaysClone.forEach((shift, index) => {
+      const something = shift.findIndex(
+        (date) => date.day === targetDate.format("YYYY-MM-DD")
+      );
+      if (something > -1) {
+        [parentIndex, childIndex] = [index, something];
+      }
+    });
+
+    return [parentIndex, childIndex];
+  };
+
   const shiftForm = (day) => {
+    console.log("shift");
     switch (flow()) {
       case "start":
         setFormDay(day);
@@ -117,6 +163,7 @@ export const Calendar = () => {
         if (end() !== null) {
           const changedDate = day.clone().add(end().hours(), "hours");
           setEnd(changedDate);
+          setPushFlag(true);
           const hourDiff = changedDate.diff(start(), "hours");
           if (hourDiff <= 0) {
             const newStart = start()
@@ -157,6 +204,7 @@ export const Calendar = () => {
         const hourDiff = newDate.diff(start(), "hours");
         hourDiff <= 0 && newDate.add(1, "days");
         setEnd(newDate);
+        start() !== null && setPushFlag(true);
         break;
     }
   };
@@ -348,15 +396,17 @@ export const Calendar = () => {
                           >
                             <div class="calendar-info">
                               <div>{day.substring(8, 10)}</div>
-                              <div
-                                class={
-                                  shifts.length > 0
-                                    ? "calendar-shift fill"
-                                    : "calendar-shift"
-                                }
-                              >
+                              <div class={"calendar-shift"}>
                                 {shifts.slice(0, shiftDisplay).map((shift) => (
-                                  <div class="shift">
+                                  <div
+                                    class="shift"
+                                    style={{
+                                      color:
+                                        shift.state === "unsaved"
+                                          ? "red"
+                                          : "black",
+                                    }}
+                                  >
                                     <div class="shift-employer">
                                       {shift.employer}
                                     </div>
