@@ -15,6 +15,7 @@ export const Calendar = () => {
 
   const [flow, setFlow] = createSignal("start");
   const [date, setDate] = createSignal(today);
+  const [newShifts, setNewShifts] = createSignal([]);
   const [start, setStart] = createSignal(null);
   const [end, setEnd] = createSignal(null);
   const [pushFlag, setPushFlag] = createSignal(false);
@@ -39,7 +40,6 @@ export const Calendar = () => {
   });
 
   createEffect(() => {
-    console.log(start());
     const [uiYear, uiMonth] = [
       Number(date().format("YYYY")),
       Number(date().format("MM")),
@@ -52,50 +52,60 @@ export const Calendar = () => {
       (async () => {
         console.log("fetching new dates");
         const days = await getCalendarDays([auth(), newMonth, newYear]);
-        setCalendarDays(days);
+        if (newShifts().length === 1) {
+          const newDays = mergeShiftToCalender(days);
+          setCalendarDays(newDays);
+        } else {
+          setCalendarDays(days);
+        }
       })();
+      console.log(newShifts());
     }
 
     if (end() === null) {
       setFlow("start");
     }
 
-    if (pushFlag()) {
+    if (newShifts().length === 1 && pushFlag()) {
+      const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
+      const days = mergeShiftToCalender(calendarDaysClone);
+      setCalendarDays(days);
+      setPushFlag(false);
+    }
+
+    if (start() !== null && end() !== null && newShifts().length === 0) {
+      const shifts = [];
       const newStartDate = start().format("YYYY-MM-DD");
       const newEndDate = end().format("YYYY-MM-DD");
       const newStartTime = start().format("HH:mm");
       const newEndTime = end().format("HH:mm");
 
-      let parentIndex = null,
+      /*  let parentIndex = null,
         childIndex = null;
       const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
-      [parentIndex, childIndex] = getIndexes(calendarDaysClone, start());
+      [parentIndex, childIndex] = getIndexes(calendarDaysClone, start()); */
 
       const employer = document.querySelector("[name='employer']").value;
 
-      if (
-        calendarDaysClone[parentIndex][childIndex] !== undefined &&
-        newEndDate === newStartDate
-      ) {
-        calendarDaysClone[parentIndex][childIndex].shifts.push({
+      if (newEndDate === newStartDate) {
+        shifts.push({
           employer: employer,
           start: newStartTime,
           end: newEndTime,
           state: "unsaved",
+          date: newStartDate,
         });
-      } else if (
-        calendarDaysClone[parentIndex][childIndex] !== undefined &&
-        newEndDate > newStartDate
-      ) {
+      } else if (newEndDate > newStartDate) {
         const endDayOne = start().clone().startOf("day").add(24, "hours");
         const hourDiff = end().clone().diff(endDayOne, "hours");
         const daysForward = Math.ceil(hourDiff / 24);
 
-        calendarDaysClone[parentIndex][childIndex].shifts.push({
+        shifts.push({
           employer: employer,
           start: newStartTime,
           end: start().clone().endOf("day").format("HH:mm"),
           state: "unsaved",
+          date: newStartDate,
         });
 
         for (let i = 0; i < daysForward; i++) {
@@ -107,26 +117,55 @@ export const Calendar = () => {
             endForward = dayForward.clone().endOf("day").format("HH:mm");
           }
 
-          [parentIndex, childIndex] = getIndexes(calendarDaysClone, dayForward);
-
-          calendarDaysClone[parentIndex][childIndex].shifts.push({
+          shifts.push({
             employer: employer,
             start: dayForward.format("HH:mm"),
             end: endForward,
             state: "unsaved",
+            date: dayForward.format("YYYY-MM-DD"),
           });
+
+          /* [parentIndex, childIndex] = getIndexes(calendarDaysClone, dayForward);
+
+          calendarDaysClone[parentIndex][childIndex]. */
         }
       }
-      setCalendarDays(calendarDaysClone);
-      setPushFlag(false);
+      setNewShifts(shifts);
+      /* setCalendarDays(calendarDaysClone); */
+      setPushFlag(true);
     }
   });
 
-  const getIndexes = (calendarDaysClone, targetDate) => {
+  const mergeShiftToCalender = (days) => {
+    const [parentIndex, childIndex] = getIndexes(days, start());
+    const { employer, end, state, start: somethingelse } = newShifts()[0];
+    days.forEach((array) => {
+      array.forEach((day) => {
+        if (day.shifts.length > 0) {
+          day.shifts = day.shifts.filter((shift) => shift.state === "saved");
+        }
+      });
+    });
+
+    console.log(parentIndex, childIndex);
+
+    days[parentIndex][childIndex].shifts.push({
+      employer: employer,
+      end: end,
+      state: state,
+      start: somethingelse,
+    });
+    return days;
+  };
+
+  const getIndexes = (days, targetDate) => {
     let parentIndex = null,
       childIndex = null;
 
-    calendarDaysClone.forEach((shift, index) => {
+    console.log(days);
+    console.log(targetDate.format("YYYY-MM-DD"));
+
+    days.forEach((shift, index) => {
       const something = shift.findIndex(
         (date) => date.day === targetDate.format("YYYY-MM-DD")
       );
@@ -139,7 +178,7 @@ export const Calendar = () => {
   };
 
   const shiftForm = (day) => {
-    console.log("shift");
+    console.log(flow());
     switch (flow()) {
       case "start":
         setFormDay(day);
@@ -163,7 +202,7 @@ export const Calendar = () => {
         if (end() !== null) {
           const changedDate = day.clone().add(end().hours(), "hours");
           setEnd(changedDate);
-          setPushFlag(true);
+          /* setPushFlag(true); */
           const hourDiff = changedDate.diff(start(), "hours");
           if (hourDiff <= 0) {
             const newStart = start()
@@ -175,6 +214,8 @@ export const Calendar = () => {
         }
         break;
     }
+
+    newShifts().length > 0 && setPushFlag(true);
   };
 
   const colonPattern = /^[01][0-9]$|^[2][0-3]$/;
@@ -204,7 +245,7 @@ export const Calendar = () => {
         const hourDiff = newDate.diff(start(), "hours");
         hourDiff <= 0 && newDate.add(1, "days");
         setEnd(newDate);
-        start() !== null && setPushFlag(true);
+        /* start() !== null && setPushFlag(true); */
         break;
     }
   };
