@@ -50,23 +50,44 @@ export const Calendar = () => {
       const newDate = new Date(newYear, newMonth - 1, 1);
       setDate(moment(newDate));
       (async () => {
-        console.log("fetching new dates");
+        console.log("refetching");
         const days = await getCalendarDays([auth(), newMonth, newYear]);
-        if (newShifts().length === 1) {
+        const [firstDay, lastDay] = [
+          days[0][0].day,
+          days[days.length - 1][6].day,
+        ];
+
+        const shiftsBetween =
+          newShifts().length > 0 &&
+          newShifts().some(
+            (shift) => shift.date >= firstDay && shift.date <= lastDay
+          );
+
+        if (shiftsBetween) {
           const newDays = mergeShiftToCalender(days);
           setCalendarDays(newDays);
         } else {
           setCalendarDays(days);
         }
       })();
-      console.log(newShifts());
     }
 
     if (end() === null) {
       setFlow("start");
     }
 
-    if (newShifts().length === 1 && pushFlag()) {
+    /* if (start() !== null) {
+      console.log(start().format("YYYY-MM-DD"));
+    }
+
+    if (end() !== null) {
+      console.log(end().format("YYYY-MM-DD"));
+    } */
+
+    console.log("shifts", newShifts().length, "should parse", pushFlag());
+
+    if (newShifts().length > 0 && pushFlag()) {
+      console.log("parsing one shift");
       const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
       const days = mergeShiftToCalender(calendarDaysClone);
       setCalendarDays(days);
@@ -74,17 +95,12 @@ export const Calendar = () => {
     }
 
     if (start() !== null && end() !== null && newShifts().length === 0) {
+      console.log("parsing new shifts");
       const shifts = [];
       const newStartDate = start().format("YYYY-MM-DD");
       const newEndDate = end().format("YYYY-MM-DD");
       const newStartTime = start().format("HH:mm");
       const newEndTime = end().format("HH:mm");
-
-      /*  let parentIndex = null,
-        childIndex = null;
-      const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
-      [parentIndex, childIndex] = getIndexes(calendarDaysClone, start()); */
-
       const employer = document.querySelector("[name='employer']").value;
 
       if (newEndDate === newStartDate) {
@@ -124,21 +140,15 @@ export const Calendar = () => {
             state: "unsaved",
             date: dayForward.format("YYYY-MM-DD"),
           });
-
-          /* [parentIndex, childIndex] = getIndexes(calendarDaysClone, dayForward);
-
-          calendarDaysClone[parentIndex][childIndex]. */
         }
       }
+      console.log(shifts);
       setNewShifts(shifts);
-      /* setCalendarDays(calendarDaysClone); */
       setPushFlag(true);
     }
   });
 
   const mergeShiftToCalender = (days) => {
-    const [parentIndex, childIndex] = getIndexes(days, start());
-    const { employer, end, state, start: somethingelse } = newShifts()[0];
     days.forEach((array) => {
       array.forEach((day) => {
         if (day.shifts.length > 0) {
@@ -146,24 +156,24 @@ export const Calendar = () => {
         }
       });
     });
-
-    console.log(parentIndex, childIndex);
-
-    days[parentIndex][childIndex].shifts.push({
-      employer: employer,
-      end: end,
-      state: state,
-      start: somethingelse,
+    newShifts().forEach((shift) => {
+      console.log(shift.date);
+      const [parentIndex, childIndex] = getIndexes(days, moment(shift.date));
+      const { employer, end, state, start: somethingelse } = shift;
+      days[parentIndex][childIndex].shifts.push({
+        employer: employer,
+        end: end,
+        state: state,
+        start: somethingelse,
+      });
     });
+
     return days;
   };
 
   const getIndexes = (days, targetDate) => {
     let parentIndex = null,
       childIndex = null;
-
-    console.log(days);
-    console.log(targetDate.format("YYYY-MM-DD"));
 
     days.forEach((shift, index) => {
       const something = shift.findIndex(
@@ -177,8 +187,7 @@ export const Calendar = () => {
     return [parentIndex, childIndex];
   };
 
-  const shiftForm = (day) => {
-    console.log(flow());
+  const setShiftRange = (day) => {
     switch (flow()) {
       case "start":
         setFormDay(day);
@@ -189,12 +198,10 @@ export const Calendar = () => {
           setStart(newStart);
           if (end() !== null) {
             const hourDiff = end().diff(start(), "hours");
-            if (hourDiff <= 0) {
-              const newEnd = end()
-                .clone()
-                .add(Math.ceil((hourDiff * -1) / 24), "days");
-              setEnd(newEnd);
-            }
+            const newEnd = end()
+              .clone()
+              .add(Math.ceil((hourDiff * -1) / 24), "days");
+            setEnd(newEnd);
           }
         }
         break;
@@ -202,7 +209,6 @@ export const Calendar = () => {
         if (end() !== null) {
           const changedDate = day.clone().add(end().hours(), "hours");
           setEnd(changedDate);
-          /* setPushFlag(true); */
           const hourDiff = changedDate.diff(start(), "hours");
           if (hourDiff <= 0) {
             const newStart = start()
@@ -214,8 +220,9 @@ export const Calendar = () => {
         }
         break;
     }
-
-    newShifts().length > 0 && setPushFlag(true);
+    newShifts().length > 0 && setNewShifts([]);
+    //newShifts().length > 0 && setPushFlag(true);
+    //setPushFlag(true);
   };
 
   const colonPattern = /^[01][0-9]$|^[2][0-3]$/;
@@ -232,7 +239,7 @@ export const Calendar = () => {
   const finalPattern =
     /^[2][0-3][\:][0-5][0-9]$|^[01][0-9][\:][0-5][0-9]$|^[0-9][\:][0-5][0-9]$/;
 
-  const setTime = (id, futureValue) => {
+  const setShiftRangeFromTime = (id, futureValue) => {
     const addZero = futureValue.length === 4 ? "0" : "";
     const newDate = moment(
       `${formDay().format("YYYY-MM-DD")}T${addZero}${futureValue}`
@@ -245,7 +252,6 @@ export const Calendar = () => {
         const hourDiff = newDate.diff(start(), "hours");
         hourDiff <= 0 && newDate.add(1, "days");
         setEnd(newDate);
-        /* start() !== null && setPushFlag(true); */
         break;
     }
   };
@@ -270,7 +276,7 @@ export const Calendar = () => {
         if (isInvalid) {
           event.preventDefault();
         } else if (finalPattern.test(futureValue)) {
-          setTime(event.target.id, futureValue);
+          setShiftRangeFromTime(event.target.id, futureValue);
         }
         break;
       default:
@@ -432,7 +438,7 @@ export const Calendar = () => {
                               color: focusColor,
                             }}
                             onClick={() => {
-                              shiftForm(momentDay);
+                              setShiftRange(momentDay);
                             }}
                           >
                             <div class="calendar-info">
