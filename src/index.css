@@ -56,12 +56,17 @@ table {
   border-radius: 0px;
 }
 
+.calendar-button:focus {
+  outline: none !important;
+  transition: none !important;
+  box-shadow: none !important;
+}
+
 .calendar-info {
   text-align: left;
   display: flex; 
   height: 100%;
   flex-direction: column;
-
 }
 
 

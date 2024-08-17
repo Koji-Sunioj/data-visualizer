@@ -4,7 +4,7 @@ import { useParams, useNavigate } from "@solidjs/router";
 import { createSignal, createResource, createEffect } from "solid-js";
 import { Col, Row, Table, Button, Form, Alert } from "solid-bootstrap";
 
-import { GlobalState } from "..";
+import { GlobalState } from "../index";
 import { getContract, getCalendarDays } from "../utils/apis";
 
 export const Calendar = () => {
@@ -57,13 +57,13 @@ export const Calendar = () => {
           days[days.length - 1][6].day,
         ];
 
-        const shiftsBetween =
+        const areShiftsBetweenNewDates =
           newShifts().length > 0 &&
           newShifts().some(
             (shift) => shift.date >= firstDay && shift.date <= lastDay
           );
 
-        if (shiftsBetween) {
+        if (areShiftsBetweenNewDates) {
           const newDays = mergeShiftToCalender(days);
           setCalendarDays(newDays);
         } else {
@@ -72,22 +72,11 @@ export const Calendar = () => {
       })();
     }
 
-    if (end() === null) {
-      setFlow("start");
+    if (start() === null) {
+      setEnd(null);
     }
-
-    /* if (start() !== null) {
-      console.log(start().format("YYYY-MM-DD"));
-    }
-
-    if (end() !== null) {
-      console.log(end().format("YYYY-MM-DD"));
-    } */
-
-    console.log("shifts", newShifts().length, "should parse", pushFlag());
 
     if (newShifts().length > 0 && pushFlag()) {
-      console.log("parsing one shift");
       const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
       const days = mergeShiftToCalender(calendarDaysClone);
       setCalendarDays(days);
@@ -95,7 +84,7 @@ export const Calendar = () => {
     }
 
     if (start() !== null && end() !== null && newShifts().length === 0) {
-      console.log("parsing new shifts");
+      console.log("parsing multiple shifts");
       const shifts = [];
       const newStartDate = start().format("YYYY-MM-DD");
       const newEndDate = end().format("YYYY-MM-DD");
@@ -142,7 +131,7 @@ export const Calendar = () => {
           });
         }
       }
-      console.log(shifts);
+
       setNewShifts(shifts);
       setPushFlag(true);
     }
@@ -157,15 +146,17 @@ export const Calendar = () => {
       });
     });
     newShifts().forEach((shift) => {
-      console.log(shift.date);
       const [parentIndex, childIndex] = getIndexes(days, moment(shift.date));
-      const { employer, end, state, start: somethingelse } = shift;
-      days[parentIndex][childIndex].shifts.push({
-        employer: employer,
-        end: end,
-        state: state,
-        start: somethingelse,
-      });
+
+      if (parentIndex !== null && childIndex !== null) {
+        const { employer, end, state, start: startTime } = shift;
+        days[parentIndex][childIndex].shifts.push({
+          employer: employer,
+          end: end,
+          state: state,
+          start: startTime,
+        });
+      }
     });
 
     return days;
@@ -176,11 +167,11 @@ export const Calendar = () => {
       childIndex = null;
 
     days.forEach((shift, index) => {
-      const something = shift.findIndex(
+      const foundIndex = shift.findIndex(
         (date) => date.day === targetDate.format("YYYY-MM-DD")
       );
-      if (something > -1) {
-        [parentIndex, childIndex] = [index, something];
+      if (foundIndex > -1) {
+        [parentIndex, childIndex] = [index, foundIndex];
       }
     });
 
@@ -256,7 +247,7 @@ export const Calendar = () => {
     }
   };
 
-  const checkTime = (event) => {
+  const parseTime = (event) => {
     const key = !isNaN(event.key) ? "number" : event.key;
 
     switch (key) {
@@ -269,6 +260,7 @@ export const Calendar = () => {
       case "Tab":
         break;
       case "number":
+        console.log("parsing time");
         const futureValue = event.target.value + event.key;
         const isInvalid = [onePattern, twoPatterh, tenPattern].every(
           (pattern) => !pattern.test(futureValue)
@@ -284,18 +276,40 @@ export const Calendar = () => {
     }
   };
 
-  const checkSomething = (event) => {
+  const deMergeShifts = (shifts) => {
+    shifts.forEach((rows) => {
+      rows.forEach((day) => {
+        day.shifts = day.shifts.filter((shift) => shift.state !== "unsaved");
+      });
+    });
+    return shifts;
+  };
+
+  const validatePattern = (event) => {
     const { inputType } = event;
     const id = event.target.id;
     const unfitsPattern = !finalPattern.test(event.target.value);
+    const validStart = start() !== null;
+    const validEnd = end() !== null;
 
     switch (id) {
       case "start-time-input":
-        unfitsPattern && start() !== null && setStart(null);
+        console.log("validating start pattern");
+        unfitsPattern && validStart && setStart(null);
         break;
       case "end-time-input":
-        unfitsPattern && end() !== null && setEnd(null);
+        unfitsPattern && validEnd && setEnd(null);
         break;
+    }
+
+    if (
+      (unfitsPattern && validEnd && newShifts().length > 0) ||
+      (unfitsPattern && validStart && newShifts().length > 0)
+    ) {
+      const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
+      const filteredDates = deMergeShifts(calendarDaysClone);
+      setCalendarDays(filteredDates);
+      setNewShifts([]);
     }
 
     if (colonPattern.test(event.target.value) && inputType === "insertText") {
@@ -334,6 +348,17 @@ export const Calendar = () => {
     });
     request.status === 200 && window.location.reload();
   };
+
+  /* const [parentIndex, childIndex] = getIndexes(calendarDays(), start());
+  const targetDay = calendarDays()[parentIndex][childIndex];
+
+  const isShiftBetweenShifts =
+    targetDay.shifts.length > 0 &&
+    targetDay.shifts.some(
+      (shift) =>
+        (shift.start <= newEndTime && newEndTime <= shift.end) ||
+        (shift.start <= newStartTime && newStartTime <= shift.end)
+    ); */
 
   return (
     <>
@@ -410,16 +435,33 @@ export const Calendar = () => {
                       const { day, shifts } = record;
 
                       const momentDay = moment(day);
-
                       const sameMonth = momentDay.month() === date().month();
-
                       const bg = sameMonth ? "white" : "#d6d6d6";
+                      const momentDayString = momentDay.format("MMDDYYYY");
 
-                      const focusColor =
-                        momentDay.format("MMDDYYYY") ===
-                        moment().format("MMDDYYYY")
+                      let focusThisDay = false;
+
+                      const hasShifts = shifts.some(
+                        (shift) => shift.state === "unsaved"
+                      );
+
+                      if (
+                        (formDay() !== null &&
+                          formDay().format("MMDDYYYY") === momentDayString) ||
+                        hasShifts
+                      ) {
+                        focusThisDay = true;
+                      }
+
+                      const focusToday =
+                        momentDayString === moment().format("MMDDYYYY")
                           ? "blue"
                           : "black";
+
+                      /* const isSelected =
+                        start() !== null &&
+                        momentDayString===
+                          start().format("MMDDYYYY"); */
 
                       const shiftDisplay =
                         shifts.length === 0 ? 0 : shifts.length > 3 ? 2 : 3;
@@ -435,7 +477,10 @@ export const Calendar = () => {
                             variant="outline"
                             class="calendar-button"
                             style={{
-                              color: focusColor,
+                              color: focusToday,
+                              "background-color": focusThisDay
+                                ? "#F0F8FF"
+                                : "white",
                             }}
                             onClick={() => {
                               setShiftRange(momentDay);
@@ -514,8 +559,8 @@ export const Calendar = () => {
                       <Form.Control
                         type="text"
                         inputmode="numeric"
-                        onKeyDown={checkTime}
-                        onInput={checkSomething}
+                        onKeyDown={parseTime}
+                        onInput={validatePattern}
                         id="start-time-input"
                         placeholder="08:00"
                       />
@@ -527,8 +572,8 @@ export const Calendar = () => {
                       <Form.Control
                         type="text"
                         disabled={start() === null}
-                        onKeyDown={checkTime}
-                        onInput={checkSomething}
+                        onKeyDown={parseTime}
+                        onInput={validatePattern}
                         inputmode="numeric"
                         id="end-time-input"
                         placeholder={

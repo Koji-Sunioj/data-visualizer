@@ -2,7 +2,6 @@ import { GlobalState } from "..";
 import { createSignal, createResource } from "solid-js";
 import { Col, Row, Form, Button, Alert, Card } from "solid-bootstrap";
 
-import TimePicker from "react-time-picker";
 import { getContract } from "../utils/apis";
 
 export const Contracts = () => {
