@@ -72,10 +72,6 @@ export const Calendar = () => {
       })();
     }
 
-    if (start() === null) {
-      setEnd(null);
-    }
-
     if (newShifts().length > 0 && pushFlag()) {
       const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
       const days = mergeShiftToCalender(calendarDaysClone);
@@ -92,26 +88,21 @@ export const Calendar = () => {
       const newEndTime = end().format("HH:mm");
       const employer = document.querySelector("[name='employer']").value;
 
-      if (newEndDate === newStartDate) {
-        shifts.push({
-          employer: employer,
-          start: newStartTime,
-          end: newEndTime,
-          state: "unsaved",
-          date: newStartDate,
-        });
-      } else if (newEndDate > newStartDate) {
-        const endDayOne = start().clone().startOf("day").add(24, "hours");
-        const hourDiff = end().clone().diff(endDayOne, "hours");
-        const daysForward = Math.ceil(hourDiff / 24);
+      const newShift = {
+        employer: employer,
+        start: newStartTime,
+        end: null,
+        state: "unsaved",
+        date: newStartDate,
+      };
 
-        shifts.push({
-          employer: employer,
-          start: newStartTime,
-          end: start().clone().endOf("day").format("HH:mm"),
-          state: "unsaved",
-          date: newStartDate,
-        });
+      if (newEndDate === newStartDate) {
+        newShift.end = newEndTime;
+      } else if (newEndDate > newStartDate) {
+        newShift.end = start().clone().endOf("day").format("HH:mm");
+        const endDayOne = start().clone().startOf("day").add(24, "hours");
+        const minuteDiff = end().clone().diff(endDayOne, "minutes");
+        const daysForward = Math.ceil(minuteDiff / 1440);
 
         for (let i = 0; i < daysForward; i++) {
           const dayForward = endDayOne.clone().add(i, "days");
@@ -131,7 +122,7 @@ export const Calendar = () => {
           });
         }
       }
-
+      shifts.push(newShift);
       setNewShifts(shifts);
       setPushFlag(true);
     }
@@ -188,10 +179,7 @@ export const Calendar = () => {
           const newStart = start().clone().add(days, "day");
           setStart(newStart);
           if (end() !== null) {
-            const hourDiff = end().diff(start(), "hours");
-            const newEnd = end()
-              .clone()
-              .add(Math.ceil((hourDiff * -1) / 24), "days");
+            const newEnd = end().clone().add(days, "day");
             setEnd(newEnd);
           }
         }
@@ -212,8 +200,6 @@ export const Calendar = () => {
         break;
     }
     newShifts().length > 0 && setNewShifts([]);
-    //newShifts().length > 0 && setPushFlag(true);
-    //setPushFlag(true);
   };
 
   const colonPattern = /^[01][0-9]$|^[2][0-3]$/;
@@ -240,8 +226,8 @@ export const Calendar = () => {
         setStart(newDate);
         break;
       case "end-time-input":
-        const hourDiff = newDate.diff(start(), "hours");
-        hourDiff <= 0 && newDate.add(1, "days");
+        newDate.format("HH:mm") <= start().format("HH:mm") &&
+          newDate.add(1, "days");
         setEnd(newDate);
         break;
     }
