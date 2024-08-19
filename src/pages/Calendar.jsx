@@ -2,7 +2,16 @@ import moment from "moment";
 import { onMount } from "solid-js";
 import { useParams, useNavigate } from "@solidjs/router";
 import { createSignal, createResource, createEffect } from "solid-js";
-import { Col, Row, Table, Button, Form, Alert } from "solid-bootstrap";
+import {
+  Col,
+  Row,
+  Table,
+  Button,
+  Form,
+  Alert,
+  InputGroup,
+  FormControl,
+} from "solid-bootstrap";
 
 import { GlobalState } from "../index";
 import { getContract, getCalendarDays } from "../utils/apis";
@@ -13,13 +22,13 @@ export const Calendar = () => {
   const params = useParams();
   const today = moment(new Date(year, month - 1, 1)); //moment().startOf("days");
 
-  const [flow, setFlow] = createSignal("start");
   const [date, setDate] = createSignal(today);
-  const [newShifts, setNewShifts] = createSignal([]);
-  const [start, setStart] = createSignal(null);
   const [end, setEnd] = createSignal(null);
-  const [pushFlag, setPushFlag] = createSignal(false);
+  const [start, setStart] = createSignal(null);
   const [formDay, setFormDay] = createSignal(null);
+  const [newShifts, setNewShifts] = createSignal([]);
+  const [pushFlag, setPushFlag] = createSignal(false);
+  const [endDayOffset, setEndDayOffset] = createSignal(0);
   const [calendarDays, setCalendarDays] = createSignal([]);
   const [contracts] = createResource(auth(), getContract, {
     initialValue: [],
@@ -40,6 +49,8 @@ export const Calendar = () => {
   });
 
   createEffect(() => {
+    console.log(newShifts());
+
     const [uiYear, uiMonth] = [
       Number(date().format("YYYY")),
       Number(date().format("MM")),
@@ -98,8 +109,10 @@ export const Calendar = () => {
 
       if (newEndDate === newStartDate) {
         newShift.end = newEndTime;
+        shifts.push(newShift);
       } else if (newEndDate > newStartDate) {
         newShift.end = start().clone().endOf("day").format("HH:mm");
+        shifts.push(newShift);
         const endDayOne = start().clone().startOf("day").add(24, "hours");
         const minuteDiff = end().clone().diff(endDayOne, "minutes");
         const daysForward = Math.ceil(minuteDiff / 1440);
@@ -122,7 +135,6 @@ export const Calendar = () => {
           });
         }
       }
-      shifts.push(newShift);
       setNewShifts(shifts);
       setPushFlag(true);
     }
@@ -170,64 +182,41 @@ export const Calendar = () => {
   };
 
   const setShiftRange = (day) => {
-    switch (flow()) {
-      case "start":
-        setFormDay(day);
-        if (start() !== null) {
-          const changedDate = formDay().clone().add(start().hours(), "hours");
-          const days = changedDate.diff(start(), "days");
-          const newStart = start().clone().add(days, "day");
-          setStart(newStart);
-          if (end() !== null) {
-            const newEnd = end().clone().add(days, "day");
-            setEnd(newEnd);
-          }
-        }
-        break;
-      case "end":
-        if (end() !== null) {
-          const changedDate = day.clone().add(end().hours(), "hours");
-          setEnd(changedDate);
-          const hourDiff = changedDate.diff(start(), "hours");
-          if (hourDiff <= 0) {
-            const newStart = start()
-              .clone()
-              .subtract(Math.ceil((hourDiff * -1) / 24), "days");
-            setStart(newStart);
-            setFormDay(newStart.clone().startOf("day"));
-          }
-        }
-        break;
+    setFormDay(day);
+    if (start() !== null) {
+      const changedDate = formDay().clone().add(start().hours(), "hours");
+      const days = changedDate.diff(start(), "days");
+      const newStart = start().clone().add(days, "day");
+      setStart(newStart);
+      if (end() !== null) {
+        const newEnd = end().clone().add(days, "day");
+        setEnd(newEnd);
+      }
     }
     newShifts().length > 0 && setNewShifts([]);
   };
 
-  const colonPattern = /^[01][0-9]$|^[2][0-3]$/;
-
-  const twoPatterh =
-    /^[2]$|^[2][0-3]$|^[2][0-3][\:]$|^[2][0-3][\:][0-5]$|^[2][0-3][\:][0-5][0-9]$/;
-
-  const tenPattern =
-    /^[01]$|^[01][0-9]$|^[01][0-9][\:]$|^[01][0-9][\:][0-5]$|^[01][0-9][\:][0-5][0-9]$/;
-
-  const onePattern =
-    /^[0-9]$|^[0-9][\:]$|^[0-9][\:][0-5]$|^[0-9][\:][0-5][0-9]$/;
-
-  const finalPattern =
-    /^[2][0-3][\:][0-5][0-9]$|^[01][0-9][\:][0-5][0-9]$|^[0-9][\:][0-5][0-9]$/;
+  const colonPattern = /^(0[0-9]|1[0-9]|2[0-3])$/;
+  const finalPattern = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  const timePattern = /^(0[0-9]?|1[0-9]?|2[0-3]?)?(:[0-5][0-9]?)?$/;
 
   const setShiftRangeFromTime = (id, futureValue) => {
     const addZero = futureValue.length === 4 ? "0" : "";
     const newDate = moment(
       `${formDay().format("YYYY-MM-DD")}T${addZero}${futureValue}`
     );
+
     switch (id) {
       case "start-time-input":
         setStart(newDate);
         break;
       case "end-time-input":
-        newDate.format("HH:mm") <= start().format("HH:mm") &&
-          newDate.add(1, "days");
+        const addedDay =
+          newDate.format("HH:mm") <= start().format("HH:mm")
+            ? 1 + endDayOffset()
+            : endDayOffset();
+
+        newDate.add(addedDay, "days");
         setEnd(newDate);
         break;
     }
@@ -246,11 +235,8 @@ export const Calendar = () => {
       case "Tab":
         break;
       case "number":
-        console.log("parsing time");
         const futureValue = event.target.value + event.key;
-        const isInvalid = [onePattern, twoPatterh, tenPattern].every(
-          (pattern) => !pattern.test(futureValue)
-        );
+        const isInvalid = !timePattern.test(futureValue);
         if (isInvalid) {
           event.preventDefault();
         } else if (finalPattern.test(futureValue)) {
@@ -303,11 +289,6 @@ export const Calendar = () => {
     }
   };
 
-  const chooseFlow = (event) => {
-    const nextFlow = event.target.checked ? "end" : "start";
-    setFlow(nextFlow);
-  };
-
   const sendShift = async (event) => {
     event.preventDefault();
     const {
@@ -346,6 +327,27 @@ export const Calendar = () => {
         (shift.start <= newStartTime && newStartTime <= shift.end)
     ); */
 
+  const parseOffset = (offset) => {
+    const newEnd = end().clone().add(offset, "days");
+    setEndDayOffset(endDayOffset() + offset);
+    setEnd(newEnd);
+    newShifts().length > 0 && setNewShifts([]);
+  };
+
+  const showRange = () => {
+    if (newShifts().length > 1) {
+      const firstDate = moment(newShifts()[0].date);
+      const secondDate = moment(newShifts()[newShifts().length - 1].date);
+      const lastRange =
+        firstDate.month() === secondDate.month() ? "DD" : "MMMM DD";
+      return `shift range: ${firstDate.format("MMMM DD")} - ${secondDate.format(
+        lastRange
+      )}`;
+    } else {
+      return `shift date: ${formDay().format("MMMM DD")}`;
+    }
+  };
+
   return (
     <>
       <Row>
@@ -373,7 +375,7 @@ export const Calendar = () => {
               </svg>
             </a>
             <div>
-              <h2 className="text-center">Choose a {flow()} date</h2>
+              <h2 className="text-center">Choose a date</h2>
               <p className="text-center">
                 period: {date().format("MMMM")} {date().format("YYYY")}
               </p>
@@ -516,9 +518,7 @@ export const Calendar = () => {
         <Col sm={{ span: 6, offset: 3 }}>
           {formDay() !== null && (
             <>
-              <h3 className="text-center mb-3 mt-3">
-                shift date: {formDay().format("MMMM DD")}
-              </h3>
+              <h3 className="text-center mb-3 mt-3">{showRange()}</h3>
               <Form class="mb-3" onSubmit={sendShift}>
                 <Row>
                   <Col md={12}>
@@ -564,7 +564,7 @@ export const Calendar = () => {
                         id="end-time-input"
                         placeholder={
                           start() !== null
-                            ? start().clone().add("8", "hours").format("HH:mm")
+                            ? start().clone().add(8, "hours").format("HH:mm")
                             : "16:00"
                         }
                       />
@@ -578,14 +578,39 @@ export const Calendar = () => {
                           "text-overflow": "ellipsis",
                         }}
                       >
-                        Select end date
+                        Add day
                       </Form.Label>
-                      <Form.Check
-                        disabled={end() === null}
-                        type="switch"
-                        id="custom-switch"
-                        onChange={chooseFlow}
-                      />
+                      <InputGroup>
+                        <Button
+                          onClick={() => {
+                            parseOffset(-1);
+                          }}
+                          style={{ width: "25%" }}
+                          variant="danger"
+                          disabled={
+                            endDayOffset() === 0 || newShifts().length === 0
+                          }
+                        >
+                          -
+                        </Button>
+                        <FormControl
+                          disabled
+                          value={endDayOffset()}
+                          style={{ "text-align": "center" }}
+                        />
+                        <Button
+                          onClick={() => {
+                            parseOffset(1);
+                          }}
+                          style={{ width: "25%" }}
+                          variant="warning"
+                          disabled={
+                            endDayOffset() === 5 || newShifts().length === 0
+                          }
+                        >
+                          +
+                        </Button>
+                      </InputGroup>
                     </Form.Group>
                   </Col>
                 </Row>

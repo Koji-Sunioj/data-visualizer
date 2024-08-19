@@ -69,7 +69,11 @@ table {
   flex-direction: column;
 }
 
-
+.calendar-offset {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+}
 
 .shift-overflow {
   padding-left: 4px;
