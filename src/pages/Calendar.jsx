@@ -49,8 +49,6 @@ export const Calendar = () => {
   });
 
   createEffect(() => {
-    console.log(newShifts());
-
     const [uiYear, uiMonth] = [
       Number(date().format("YYYY")),
       Number(date().format("MM")),
@@ -201,18 +199,26 @@ export const Calendar = () => {
   const timePattern = /^(0[0-9]?|1[0-9]?|2[0-3]?)?(:[0-5][0-9]?)?$/;
 
   const setShiftRangeFromTime = (id, futureValue) => {
-    const addZero = futureValue.length === 4 ? "0" : "";
-    const newDate = moment(
-      `${formDay().format("YYYY-MM-DD")}T${addZero}${futureValue}`
-    );
+    const [hours, minutes] = futureValue.split(":");
+    const newDate = formDay().clone().set({ hour: hours, minute: minutes });
 
     switch (id) {
       case "start-time-input":
+        if (end() !== null) {
+          const correctEnd = formDay()
+            .clone()
+            .set({ hour: end().hours(), minute: end().minutes() })
+            .add(endDayOffset(), "days");
+
+          correctEnd.diff(newDate, "minutes") <= 1440 &&
+            correctEnd.add(1, "days");
+          setEnd(correctEnd);
+        }
         setStart(newDate);
         break;
       case "end-time-input":
         const addedDay =
-          newDate.format("HH:mm") <= start().format("HH:mm")
+          newDate.diff(start(), "minutes") <= 0
             ? 1 + endDayOffset()
             : endDayOffset();
 
@@ -588,7 +594,11 @@ export const Calendar = () => {
                           style={{ width: "25%" }}
                           variant="danger"
                           disabled={
-                            endDayOffset() === 0 || newShifts().length === 0
+                            endDayOffset() === 0 ||
+                            newShifts().length === 0 /* ||
+                            (start() !== null &&
+                              end() !== null &&
+                              end().diff(start(), "minutes") <= 1440) */
                           }
                         >
                           -
