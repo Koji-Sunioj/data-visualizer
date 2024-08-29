@@ -20,8 +20,7 @@ export const Calendar = () => {
   const { auth } = GlobalState();
   const { year, month } = useParams();
   const params = useParams();
-  const today = moment(new Date(year, month - 1, 1)); //moment().startOf("days");
-
+  const today = moment(new Date(year, month - 1, 1));
   const [date, setDate] = createSignal(today);
   const [end, setEnd] = createSignal(null);
   const [start, setStart] = createSignal(null);
@@ -195,19 +194,59 @@ export const Calendar = () => {
     return await request.json();
   };
 
+  const getShiftBetween = (date) => {
+    const [parentIndex, childIndex] = getIndexes(calendarDays(), date);
+    const targetDay = calendarDays()[parentIndex][childIndex];
+    const time = date.format("HH:mm");
+
+    const isShiftBetweenShifts =
+      targetDay.shifts.length > 0 &&
+      targetDay.shifts.some(
+        (shift) => time >= shift.start && time <= shift.end
+      );
+    return isShiftBetweenShifts;
+  };
+
   const setShiftRange = async (day) => {
-    if (start() !== null) {
-      const newStart = day.clone().add(start().hours(), "hours");
-      const days = newStart.diff(start(), "days");
-      setStart(newStart);
-      if (end() !== null) {
+    const uiState = `${start() === null ? "nostart" : "start"}-${
+      end() === null ? "noend" : "end"
+    }`;
+
+    const newStart =
+      start() === null
+        ? null
+        : day
+            .clone()
+            .add(start().hours(), "hours")
+            .add(start().minutes(), "minutes");
+
+    switch (uiState) {
+      case "nostart-noend":
+        setFormDay(day);
+        break;
+      case "start-noend":
+        const isShiftBetweenShifts = getShiftBetween(newStart);
+        if (isShiftBetweenShifts) {
+          alert("a shift exists on the chosen day");
+        } else {
+          setStart(newStart);
+          setFormDay(day);
+        }
+        break;
+      case "start-end":
+        const days = newStart.diff(start(), "days");
         const newEnd = end().clone().add(days, "day");
-        setEnd(newEnd);
         const { shifts } = await checkAvailability(newStart, newEnd);
-        console.log(shifts);
-      }
+        if (shifts > 0) {
+          alert("a shift exists on the chosen day");
+        } else {
+          setStart(newStart);
+          setEnd(newEnd);
+          setFormDay(day);
+        }
+        break;
     }
-    setFormDay(day);
+
     newShifts().length > 0 && setNewShifts([]);
   };
 
@@ -223,8 +262,7 @@ export const Calendar = () => {
             .set({ hour: end().hours(), minute: end().minutes() })
             .add(endDayOffset(), "days");
 
-          correctEnd.diff(newDate, "minutes") <= 1440 &&
-            correctEnd.add(1, "days");
+          correctEnd.diff(newDate, "minutes") <= 0 && correctEnd.add(1, "days");
           setEnd(correctEnd);
         }
         setStart(newDate);
@@ -286,21 +324,22 @@ export const Calendar = () => {
     const unfitsPattern = !finalPattern.test(event.target.value);
     const validStart = start() !== null;
     const validEnd = end() !== null;
+    const validationSwitch = `${id}-${unfitsPattern ? "unmatch" : "match"}`;
 
-    switch (id) {
-      case "start-time-input":
-        console.log("validating start pattern");
-        unfitsPattern && validStart && setStart(null);
+    switch (validationSwitch) {
+      case "start-time-input-unmatch":
+        validStart && setStart(null);
         break;
-      case "end-time-input":
-        unfitsPattern && validEnd && setEnd(null);
+      case "end-time-input-unmatch":
+        validEnd && setEnd(null);
         break;
     }
 
-    if (
-      (unfitsPattern && validEnd && newShifts().length > 0) ||
-      (unfitsPattern && validStart && newShifts().length > 0)
-    ) {
+    const wasReset =
+      (start() === null && newShifts().length > 0) ||
+      (end() === null && newShifts().length > 0);
+
+    if (wasReset) {
       const calendarDaysClone = JSON.parse(JSON.stringify(calendarDays()));
       const filteredDates = deMergeShifts(calendarDaysClone);
       setCalendarDays(filteredDates);
