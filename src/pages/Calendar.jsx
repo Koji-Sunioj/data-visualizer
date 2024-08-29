@@ -146,6 +146,7 @@ export const Calendar = () => {
         }
       });
     });
+
     newShifts().forEach((shift) => {
       const [parentIndex, childIndex] = getIndexes(days, moment(shift.date));
 
@@ -179,24 +180,36 @@ export const Calendar = () => {
     return [parentIndex, childIndex];
   };
 
-  const setShiftRange = (day) => {
-    setFormDay(day);
+  const checkAvailability = async (startDate, endDate) => {
+    const tzFormat = "YYYY-MM-DD HH:mm:ssZ";
+    const [uriStart, uriEnd] = [
+      encodeURIComponent(startDate.format(tzFormat).substring(0, 22)),
+      encodeURIComponent(endDate.format(tzFormat).substring(0, 22)),
+    ];
+    const uri = `http://localhost:8000/shifts/availability?start=${uriStart}&end=${uriEnd}`;
+
+    const request = await fetch(uri, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${auth()}` },
+    });
+    return await request.json();
+  };
+
+  const setShiftRange = async (day) => {
     if (start() !== null) {
-      const changedDate = formDay().clone().add(start().hours(), "hours");
-      const days = changedDate.diff(start(), "days");
-      const newStart = start().clone().add(days, "day");
+      const newStart = day.clone().add(start().hours(), "hours");
+      const days = newStart.diff(start(), "days");
       setStart(newStart);
       if (end() !== null) {
         const newEnd = end().clone().add(days, "day");
         setEnd(newEnd);
+        const { shifts } = await checkAvailability(newStart, newEnd);
+        console.log(shifts);
       }
     }
+    setFormDay(day);
     newShifts().length > 0 && setNewShifts([]);
   };
-
-  const colonPattern = /^(0[0-9]|1[0-9]|2[0-3])$/;
-  const finalPattern = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  const timePattern = /^(0[0-9]?|1[0-9]?|2[0-3]?)?(:[0-5][0-9]?)?$/;
 
   const setShiftRangeFromTime = (id, futureValue) => {
     const [hours, minutes] = futureValue.split(":");
@@ -227,6 +240,10 @@ export const Calendar = () => {
         break;
     }
   };
+
+  const colonPattern = /^(0[0-9]|1[0-9]|2[0-3])$/;
+  const finalPattern = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  const timePattern = /^(0[0-9]?|1[0-9]?|2[0-3]?)?(:[0-5][0-9]?)?$/;
 
   const parseTime = (event) => {
     const key = !isNaN(event.key) ? "number" : event.key;
@@ -321,17 +338,6 @@ export const Calendar = () => {
     });
     request.status === 200 && window.location.reload();
   };
-
-  /* const [parentIndex, childIndex] = getIndexes(calendarDays(), start());
-  const targetDay = calendarDays()[parentIndex][childIndex];
-
-  const isShiftBetweenShifts =
-    targetDay.shifts.length > 0 &&
-    targetDay.shifts.some(
-      (shift) =>
-        (shift.start <= newEndTime && newEndTime <= shift.end) ||
-        (shift.start <= newStartTime && newStartTime <= shift.end)
-    ); */
 
   const parseOffset = (offset) => {
     const newEnd = end().clone().add(offset, "days");
@@ -451,11 +457,6 @@ export const Calendar = () => {
                         momentDayString === moment().format("MMDDYYYY")
                           ? "blue"
                           : "black";
-
-                      /* const isSelected =
-                        start() !== null &&
-                        momentDayString===
-                          start().format("MMDDYYYY"); */
 
                       const shiftDisplay =
                         shifts.length === 0 ? 0 : shifts.length > 3 ? 2 : 3;
@@ -584,7 +585,7 @@ export const Calendar = () => {
                           "text-overflow": "ellipsis",
                         }}
                       >
-                        Add day
+                        Add days to end
                       </Form.Label>
                       <InputGroup>
                         <Button
@@ -594,11 +595,7 @@ export const Calendar = () => {
                           style={{ width: "25%" }}
                           variant="danger"
                           disabled={
-                            endDayOffset() === 0 ||
-                            newShifts().length === 0 /* ||
-                            (start() !== null &&
-                              end() !== null &&
-                              end().diff(start(), "minutes") <= 1440) */
+                            endDayOffset() === 0 || newShifts().length === 0
                           }
                         >
                           -
